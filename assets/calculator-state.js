@@ -133,6 +133,12 @@
         if (json !== lastSaved) { window.pcbsSaveCalculator(json); lastSaved = json; }
     }
     window.pcbsFlush = flush;
+    window.pcbsApplyCalculatorDefaults = function (form) {
+        Array.prototype.forEach.call((form || document).querySelectorAll('input[name$="ResultsRequested"]'), function (control) {
+            control.defaultValue = '10'; control.placeholder = '10';
+            if (control.value.trim() === '') control.value = '10';
+        });
+    };
     function schedule() { if (restoring) return; clearTimeout(timer); timer = setTimeout(flush, 150); }
     window.pcbsClearCurrentTab = function () {
         if (codec.pages.indexOf(active) < 0) return false;
@@ -143,6 +149,7 @@
             if (c.tagName === 'INPUT' && c.type !== 'checkbox') c.value = '';
             if (c.tagName === 'SELECT') c.selectedIndex = c.options.length ? 0 : -1;
         });
+        pcbsApplyCalculatorDefaults(form);
         if (active === 'div3DMarkScoreCalculator') {
             refreshDependentOptions();
         }
@@ -184,6 +191,7 @@
             try { return originalCalculate(); }
             finally { data = careerData; schedule(); }
         };
+        pcbsApplyCalculatorDefaults();
         showPage(state.activeTab);
         applyCareer(career);
         if (typeof window.pcbsRestoreJobReview === 'function') window.pcbsRestoreJobReview();

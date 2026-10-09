@@ -32,7 +32,7 @@ foreach ($referenceFile in $referenceFiles) {
 $compilerArguments = @('/noconfig','/nologo','/target:library','/nostdlib+','/optimize+','/platform:anycpu')
 $compilerArguments += '/out:' + (Join-Path $packagePath 'PCBS-Helper.dll')
 $compilerArguments += $referenceFiles | ForEach-Object { '/reference:' + $_ }
-$assetNames = @('calculator.html','embedded-ui.js','calculator-theme.css','calculator-state-codec.js','calculator-state.js','calculator-job-rules.js','calculator-job-import.js')
+$assetNames = @('calculator.html','embedded-ui.js','calculator-theme.css','calculator-state-codec.js','calculator-state.js','calculator-job-rules.js','calculator-job-import.js','calculator-localization.js')
 foreach ($assetName in $assetNames) {
     $assetFile = Join-Path $projectPath ('assets\' + $assetName)
     if (-not (Test-Path -LiteralPath $assetFile)) { throw "Calculator asset missing: $assetName. Use -FetchCalculator if calculator.html is missing." }
@@ -61,17 +61,29 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw 'Window position tests could not compile.' }
     & $positionTestExe
     if ($LASTEXITCODE -ne 0) { throw 'Window position tests failed.' }
+    $cursorTestExe = Join-Path $buildPath 'PanelCursorModeTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$cursorTestExe" (Join-Path $projectPath 'src\PanelCursorMode.cs') (Join-Path $projectPath 'tests\PanelCursorModeTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Cursor toggle tests could not compile.' }
+    & $cursorTestExe
+    if ($LASTEXITCODE -ne 0) { throw 'Cursor toggle tests failed.' }
     $careerTestExe = Join-Path $buildPath 'CareerProgressTests.exe'
     & $compilerPath /nologo /target:exe "/out:$careerTestExe" (Join-Path $projectPath 'src\CareerProgress.cs') (Join-Path $projectPath 'tests\CareerProgressTests.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Career progress tests could not compile.' }
     & $careerTestExe
     if ($LASTEXITCODE -ne 0) { throw 'Career progress tests failed.' }
+    $localizationTestExe = Join-Path $buildPath 'HelperLocalizationTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$localizationTestExe" (Join-Path $projectPath 'src\HelperLocalization.cs') (Join-Path $projectPath 'tests\HelperLocalizationTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Native localization tests could not compile.' }
+    & $localizationTestExe
+    if ($LASTEXITCODE -ne 0) { throw 'Native localization tests failed.' }
     $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
     if ($nodeCommand) {
         & $nodeCommand.Source (Join-Path $projectPath 'tests\CalculatorStateTests.js')
         if ($LASTEXITCODE -ne 0) { throw 'Calculator state tests failed.' }
         & $nodeCommand.Source (Join-Path $projectPath 'tests\CalculatorJobRulesTests.js')
         if ($LASTEXITCODE -ne 0) { throw 'Calculator job rule tests failed.' }
+        & $nodeCommand.Source (Join-Path $projectPath 'tests\CalculatorLocalizationTests.js')
+        if ($LASTEXITCODE -ne 0) { throw 'Calculator localization tests failed.' }
     } else { Write-Warning 'Node.js not found: calculator JavaScript tests were skipped.' }
 }
 if ($Install) {

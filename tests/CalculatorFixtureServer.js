@@ -9,9 +9,10 @@ let html = asset('calculator.html');
 html = html.replace('</head>', '<style>' + asset('calculator-theme.css') + '</style></head>');
 html = html.replace('<head>', '<head><script>window.pcbsErrors=[];window.addEventListener("error",function(e){pcbsErrors.push(e.message);});</script>');
 const bridge = 'window.pcbsInitialState=JSON.parse(sessionStorage.getItem("pcbs-fixture-state")||"null");window.pcbsInitialCareer={valid:true,applicable:true,level:13,percent:25.123456};' +
+    'window.pcbsFixtureAlerts=[];window.alert=function(message){pcbsFixtureAlerts.push(message);};' +
     'window.pcbsSaveCalculator=function(json){window.pcbsCaptured=JSON.parse(json);};window.pcbsCalculatorTab=function(allowed){window.pcbsClearEnabled=allowed;};';
-html = html.replace('</body>', '<script>' + bridge + '</script><script>' + asset('embedded-ui.js') + '</script><script>' +
+html = html.replace('</body>', '<script>' + bridge + '</script><script>window.pcbsInitialLanguage=new URLSearchParams(location.search).get("lang")||"en";</script><script>' + asset('embedded-ui.js') + '</script><script>' +
     asset('calculator-state-codec.js') + '</script><script>' + asset('calculator-job-rules.js') + '</script><script>' +
-    asset('calculator-job-import.js') + '</script><script>' + asset('calculator-state.js') + '</script></body>');
+    asset('calculator-job-import.js') + '</script><script>' + asset('calculator-state.js') + '</script><script>' + asset('calculator-localization.js') + '</script></body>');
 const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html); });
 server.listen(0, '127.0.0.1', () => console.log('Fixture URL: http://127.0.0.1:' + server.address().port + '/'));

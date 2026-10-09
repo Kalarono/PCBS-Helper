@@ -11,7 +11,7 @@ namespace PCBSCalculatorHelper
     internal static class JobCalculatorImport
     {
         internal static bool Russian
-        { get { return (I2.Loc.LocalizationManager.CurrentLanguageCode ?? "").StartsWith("ru", StringComparison.OrdinalIgnoreCase); } }
+        { get { return HelperLocalization.Russian; } }
         private static string Clean(string text) { return Regex.Replace(text ?? "", "<[^>]*>", ""); }
         private static object Field(object obj, string name)
         { FieldInfo field = AccessTools.Field(obj.GetType(), name); return field == null ? null : field.GetValue(obj); }

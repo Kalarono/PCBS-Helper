@@ -29,6 +29,15 @@ check(rules.valid(build, { fixed: { cpu: 'Intel', pcCase: 'Case' } }, db), 'Exac
 check(!rules.valid(build, { fixed: { cpu: 'AMD' } }, db), 'Exact CPU constraint rejects other parts.');
 check(!rules.valid(build, { fixed: { ram: 'Different RAM' } }, db), 'Exact RAM constraint rejects other parts.');
 const original = { cpu: 'Intel', gpu: 'Nvidia', gpuCount: 1, mobo: 'Board', pcCase: 'Case' };
+const hyperX = { brand: 'HyperX', count: 1, newOnly: true };
+const intelGoal = { brand: 'Intel', count: 1, newOnly: true };
+const msiGoal = { brand: 'MSI', count: 2, newOnly: true };
+const split = rules.upgradeBrandRules([hyperX, intelGoal, msiGoal], db);
+check(split.deferred.length === 1 && split.deferred[0] === hyperX, 'A HyperX RAM goal is deferred outside the CPU/GPU/motherboard upgrade search.');
+check(split.applied.length === 2 && split.applied[0] === intelGoal && split.applied[1] === msiGoal, 'CPU and GPU/motherboard manufacturer goals remain enforced.');
+check(rules.valid({ cpu: 'Intel' }, { upgrade: true, system: original, brands: split.applied.slice(0, 1) }, db), 'A deferred ancillary brand goal no longer rejects valid CPU-only score upgrades.');
+check(rules.upgradeBrandRules([{ brand: 'NVIDIA', count: 1, newOnly: true }], db).deferred.length === 1, 'Manufacturer goals still distinguish a GPU vendor from its board manufacturer.');
+check(rules.upgradeBrandRules([], db).applied.length === 0, 'Manual upgrades with no job brand rules stay unconstrained.');
 check(!rules.valid({ gpu: 'Water', gpuCount: 1 }, { upgrade: true, system: original, cpuBrand: 'AMD' }, db), 'GPU-only upgrades cannot bypass a CPU brand goal.');
 check(!rules.valid({ cpu: 'AMD' }, { upgrade: true, system: original, gpuCount: '2' }, db), 'CPU-only upgrades cannot bypass two-GPU goal.');
 check(!rules.valid({ cpu: 'AMD' }, { upgrade: true, system: original, gpuType: 'Water' }, db), 'CPU-only upgrades cannot bypass GPU cooling goal.');

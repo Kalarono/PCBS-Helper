@@ -20,6 +20,9 @@ node_modules/
 !.env.example
 !.env.sample
 
+# Локальные данные инструментов разработки
+.serena/
+
 # Скачанный сторонний калькулятор и информация о его загрузке
 # Собственные JS/CSS в assets остаются в репозитории
 /assets/calculator.html
@@ -34,18 +37,28 @@ node_modules/
 
 # Логи, кэш и временные файлы
 *.log
+*.log.*
 *.tmp
 *.temp
 *.bak
 __pycache__/
 *.pyc
+*.pyo
 .cache/
+.pytest_cache/
+
+# Отчёты покрытия тестов
+/coverage/
+.nyc_output/
 
 # Личные файлы редакторов
 .vs/
 .idea/
 *.user
 *.suo
+*.swp
+*.swo
+*~
 
 # Служебные файлы Windows/macOS
 Thumbs.db

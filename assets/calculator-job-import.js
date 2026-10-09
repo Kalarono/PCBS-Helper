@@ -41,6 +41,8 @@
                 if (page === pages[1] && (spec[0] === 'Case' || spec[0] === 'Ram')) return;
                 var row = document.createElement('tr'), label = document.createElement('td'), cell = document.createElement('td');
                 var control = document.createElement('input'); control.name = 'pcbsFixed' + spec[0];
+                row.hidden = true;
+                row.setAttribute('data-pcbs-required', '');
                 control.placeholder = 'Any'; if (spec[2]) control.setAttribute('list', spec[2]);
                 label.textContent = 'Required ' + spec[1]; cell.appendChild(control); row.appendChild(label); row.appendChild(cell);
                 form.querySelector('tbody').insertBefore(row, form.querySelector('tbody').lastElementChild);
@@ -58,16 +60,23 @@
         var job = metadata(page), review = document.getElementById(page + 'JobReview');
         review.textContent = ''; review.style.display = job ? 'block' : 'none';
         if (!job) return;
+        var russian = typeof window.pcbsLanguage === 'string' ? window.pcbsLanguage === 'ru' : !!job.ru;
+        function translate(text) { return typeof window.pcbsTranslate === 'function' ? window.pcbsTranslate(text) : text; }
         var heading = document.createElement('strong');
-        heading.textContent = (job.ru ? 'Задание №' : 'Job #') + job.jobId + ': ' + job.title;
+        heading.textContent = (russian ? 'Задание №' : 'Job #') + job.jobId + ': ' + job.title;
         review.appendChild(heading);
         var container = review;
-        function line(text) { var p = document.createElement('p'); p.textContent = text; container.appendChild(p); }
-        line((job.ru ? 'Режим: ' : 'Mode: ') + (page === pages[0] ? 'Build Maker' : 'Build Upgrader'));
+        function line(text) { var p = document.createElement('p'); p.textContent = translate(text); container.appendChild(p); }
+        line((russian ? 'Режим: ' : 'Mode: ') + translate(page === pages[0] ? 'Build Maker' : 'Build Upgrader'));
         var conditions = document.createElement('details'), conditionTitle = document.createElement('summary');
-        conditionTitle.textContent = job.ru ? 'Условия задания и ограничения расчёта' : 'Job objectives and calculation limits';
+        conditionTitle.textContent = translate('Job objectives and calculation limits');
         conditions.appendChild(conditionTitle); review.appendChild(conditions); container = conditions;
         (job.notes || []).concat(extra || []).forEach(line);
+        if (page === pages[1]) PCBSJobRules.upgradeBrandRules(job.brands, sourceData).deferred.forEach(function (rule) {
+            line(russian
+                ? 'Условие по марке ' + rule.brand + ' (' + Math.max(1, Number(rule.count) || 1) + '): проверьте отдельно в игре. Подбор апгрейда заменяет только CPU, GPU и плату; это условие не ограничивает варианты апгрейда.'
+                : 'Brand objective ' + rule.brand + ' (' + Math.max(1, Number(rule.count) || 1) + '): check separately in the game. Build Upgrader selects only CPU, GPU and motherboard; this objective does not restrict score upgrades.');
+        });
         var list = document.createElement('ul');
         (job.requirements || []).forEach(function (text) { var item = document.createElement('li'); item.textContent = text; list.appendChild(item); });
         container.appendChild(list);
@@ -76,9 +85,9 @@
         ['ram', 'gpus', 'm2s', 'disks'].forEach(function (key) { parts = parts.concat(system[key] || []); });
         if (parts.length) {
             var details = document.createElement('details'), summary = document.createElement('summary');
-            summary.textContent = job.ru ? 'Все исходные комплектующие' : 'All original hardware'; details.appendChild(summary);
-            if (system.cpuMhz) parts.push('CPU: ' + system.cpuMhz + ' MHz');
-            if (system.gpuMhz) parts.push('GPU: ' + system.gpuMhz + ' MHz');
+            summary.textContent = translate('All original hardware'); details.appendChild(summary);
+            if (system.cpuMhz) parts.push('CPU: ' + system.cpuMhz + (russian ? ' МГц' : ' MHz'));
+            if (system.gpuMhz) parts.push('GPU: ' + system.gpuMhz + (russian ? ' МГц' : ' MHz'));
             var p = document.createElement('p'); p.textContent = parts.join('\n'); p.style.whiteSpace = 'pre-line'; details.appendChild(p); container.appendChild(details);
         }
     }
@@ -127,7 +136,7 @@
         [['Cpu', 'cpu'], ['Gpu', 'gpu'], ['Case', 'pcCase'], ['Mobo', 'mobo'], ['Ram', 'ram']].forEach(function (spec) {
             var control = form.elements.namedItem('pcbsFixed' + spec[0]); fixed[spec[1]] = control ? control.value : '';
         });
-        return { upgrade: upgrade, brands: job.brands || [], fixed: fixed, cpuBrand: form.elements.namedItem('pcbsCpuBrand').value,
+        return { upgrade: upgrade, brands: upgrade ? PCBSJobRules.upgradeBrandRules(job.brands, sourceData).applied : job.brands || [], fixed: fixed, cpuBrand: form.elements.namedItem('pcbsCpuBrand').value,
             gpuBrand: form.elements.namedItem('pcbsGpuBrand').value,
             gpuCount: form.elements.namedItem(upgrade ? 'selectBuildUpgraderOptionsGpuCount' : 'selectBuildMakerGpuCount').value,
             gpuType: form.elements.namedItem(upgrade ? 'selectBuildUpgraderOptionsGpuType' : 'selectBuildMakerGpuType').value,

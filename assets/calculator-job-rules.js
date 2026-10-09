@@ -11,6 +11,21 @@
         if (gpu && same(wanted, 'AMD')) return /Radeon/i.test(name);
         return false;
     }
+    function upgradeBrandRules(rules, db) {
+        var result = { applied: [], deferred: [] };
+        (rules || []).forEach(function (rule) {
+            // Upgrader buys only CPUs, GPUs and motherboards. A manufacturer goal
+            // for RAM, storage, cooling, etc. must not reject every score upgrade.
+            // Use the complete catalog so career locks do not disable valid goals.
+            var supported = ['cpus', 'gpus', 'mobos'].some(function (group) {
+                return Object.keys(db[group] || {}).some(function (name) {
+                    return same(db[group][name].manufacturer, rule.brand);
+                });
+            });
+            result[supported ? 'applied' : 'deferred'].push(rule);
+        });
+        return result;
+    }
     function valid(candidate, options, db) {
         var system = options.system || {}, isUpgrade = options.upgrade;
         var cpuName = candidate.cpu || (isUpgrade ? system.cpu : '');
@@ -46,7 +61,7 @@
             return n >= Math.max(1, Number(rule.count) || 1);
         });
     }
-    var api = { brand: brand, valid: valid };
+    var api = { brand: brand, valid: valid, upgradeBrandRules: upgradeBrandRules };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.PCBSJobRules = api;
 })(typeof window !== 'undefined' ? window : this);

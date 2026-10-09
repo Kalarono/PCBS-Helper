@@ -89,7 +89,7 @@ namespace PCBSCalculatorHelper
                 if (!show) return;
                 helper.interactable = true;
                 Text text = helper.GetComponentInChildren<Text>(true);
-                text.text = JobCalculatorImport.Russian ? "Помощник" : "Helper";
+                text.text = HelperLocalization.Text("Helper");
                 QueueLayout();
             }
             catch (Exception ex) { log.LogWarning("Could not update job helper button: " + ex.Message); }

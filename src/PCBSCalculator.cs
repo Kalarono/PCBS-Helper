@@ -10,7 +10,7 @@ using ZenFulcrum.EmbeddedBrowser;
 
 namespace PCBSCalculatorHelper
 {
-    [BepInPlugin("local.pcbs.calculator", "PCBS-Helper", "1.2.1")]
+    [BepInPlugin("local.pcbs.calculator", "PCBS-Helper", "1.2.3")]
     [DefaultExecutionOrder(-32000)]
     public sealed class CalculatorPlugin : BaseUnityPlugin
     {
@@ -43,10 +43,12 @@ namespace PCBSCalculatorHelper
         private CalculatorSession calculatorSession;
         private float nextCareerSync;
         private string lastCareerJson;
+        private string lastLanguage;
         private bool clearSupported = true;
         private JobHelperButton jobHelper;
         private JSONNode pendingJobImport;
         private bool panelOwnsCursor;
+        private readonly PanelCursorMode cursorMode = new PanelCursorMode();
         private CursorLockMode panelPreviousLock;
         private bool panelPreviousVisible;
 
@@ -67,7 +69,7 @@ namespace PCBSCalculatorHelper
                 "Open/close the embedded calculator. Restart the game after editing.");
             zoom = Config.Bind("Display", "Zoom", 1.0f, "Browser zoom: 0.6 to 1.8. Also adjustable in the toolbar.");
             requirementsKey = Config.Bind("Controls", "RequirementsKey", KeyCode.F3,
-                "Toggle the game requirements side panel. Hold Alt to interact with it.");
+                "Toggle the game requirements side panel. Press Alt to toggle its cursor.");
             bool autoRequirements = Config.Bind("Display", "AutoShowRequirements", true,
                 "Show game requirements automatically beside the visible email/PC job. F3 pins the panel.").Value;
             calculatorEnabled = Config.Bind("Helpers", "CalculatorEnabled", true,
@@ -83,7 +85,7 @@ namespace PCBSCalculatorHelper
             expandedSetting = Config.Bind("Display", "CalculatorExpanded", false,
                 "Open the calculator as a full window. Switch sizes with Expand/Compact in the toolbar.");
             expanded = expandedSetting.Value;
-            tweaker = new TweakerPanel(Config, Logger, tweakerKey.Value, requirements.RefreshObjectives,
+            tweaker = new TweakerPanel(Config, Logger, tweakerKey.Value, hotkey.Value, requirementsKey.Value, requirements.RefreshObjectives,
                 calculatorEnabled, requirementsEnabled,
                 delegate(bool value) { if (!value) SetVisible(false); UpdatePanelCursor(); },
                 delegate(bool value) { requirements.SetEnabled(value); UpdatePanelCursor(); });
@@ -230,13 +232,21 @@ namespace PCBSCalculatorHelper
                 if (tweaker.Visible) { tweaker.Hide(); ReleaseInputGrace(); }
                 else if (visible) SetVisible(false);
             }
-            SyncPanelVisibility(); UpdatePanelCursor();
+            SyncPanelVisibility();
+            bool altPressed = Input.GetKeyDown(KeyCode.LeftAlt) || Input.GetKeyDown(KeyCode.RightAlt);
+            cursorMode.Update(CursorContext, Application.isFocused, altPressed);
+            if (altPressed && !cursorMode.Enabled)
+            {
+                calculatorPlacement.CancelDrag(); requirements.CancelCursorInteraction();
+            }
+            UpdatePanelCursor();
         }
 
         private void SyncPanelVisibility()
         { requirements.SetDisplayBlocked(visible || (tweaker != null && tweaker.Visible)); }
 
-        private bool ModalVisible { get { return (visible && expanded) || (tweaker != null && tweaker.Visible); } }
+        private int CursorContext { get { return visible ? 1 : requirements != null && requirements.Visible ? 2 : 0; } }
+        private bool ModalVisible { get { return (visible && expanded && cursorMode.Enabled) || (tweaker != null && tweaker.Visible); } }
 
         private bool CalculatorPointerOverPanel
         {
@@ -249,8 +259,9 @@ namespace PCBSCalculatorHelper
 
         private void UpdatePanelCursor()
         {
-            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
-            bool takeCursor = Application.isFocused && (ModalVisible || (visible && (alt || calculatorPlacement.IsDragging)) || (requirements != null && requirements.WantsCursor));
+            cursorMode.Update(CursorContext, Application.isFocused, false);
+            if (requirements != null) requirements.CursorEnabled = cursorMode.Enabled;
+            bool takeCursor = Application.isFocused && ((tweaker != null && tweaker.Visible) || (visible && (cursorMode.Enabled || calculatorPlacement.IsDragging)) || (requirements != null && requirements.WantsCursor));
             if (takeCursor && !panelOwnsCursor)
             {
                 panelPreviousLock = Cursor.lockState;
@@ -283,6 +294,12 @@ namespace PCBSCalculatorHelper
                 {
                     browser.CallFunction("pcbsUpdateCareer", new JSONNode[] { JSONNode.Parse(career) });
                     lastCareerJson = career;
+                }
+                string language = HelperLocalization.Code;
+                if (language != lastLanguage)
+                {
+                    browser.CallFunction("pcbsSetLanguage", new JSONNode[] { new JSONNode(language) });
+                    lastLanguage = language;
                 }
             }
             if (visible)
@@ -337,12 +354,14 @@ namespace PCBSCalculatorHelper
                 html = html.Replace("</body>", "<script>" + EmbeddedAssets.Read("embedded-ui.js", assembly, assetDir) + "</script></body>");
                 html = html.Replace("</head>", "<style>" + EmbeddedAssets.Read("calculator-theme.css", assembly, assetDir) + "</style></head>");
                 string bootstrap = "window.pcbsInitialState = JSON.parse(" + CalculatorSession.ScriptString(calculatorSession.Load()) +
-                    "); window.pcbsInitialCareer = " + CalculatorSession.CareerJson() + ";";
+                    "); window.pcbsInitialCareer = " + CalculatorSession.CareerJson() +
+                    "; window.pcbsInitialLanguage = " + CalculatorSession.ScriptString(HelperLocalization.Code) + ";";
                 html = html.Replace("</body>", "<script>" + bootstrap + "</script><script>" +
                     EmbeddedAssets.Read("calculator-state-codec.js", assembly, assetDir) + "</script><script>" +
                     EmbeddedAssets.Read("calculator-job-rules.js", assembly, assetDir) + "</script><script>" +
                     EmbeddedAssets.Read("calculator-job-import.js", assembly, assetDir) + "</script><script>" +
-                    EmbeddedAssets.Read("calculator-state.js", assembly, assetDir) + "</script></body>");
+                    EmbeddedAssets.Read("calculator-state.js", assembly, assetDir) + "</script><script>" +
+                    EmbeddedAssets.Read("calculator-localization.js", assembly, assetDir) + "</script></body>");
                 browserObject = new GameObject("PCBS Calculator Browser");
                 DontDestroyOnLoad(browserObject);
                 input = new OverlayInput(this);
@@ -361,7 +380,7 @@ namespace PCBSCalculatorHelper
                     browser.RegisterFunction("pcbsCalculatorTab", delegate(JSONNode args) {
                         if (args.Count == 1 && args[0].Value is bool) clearSupported = (bool)args[0];
                     });
-                    nextCareerSync = 0; lastCareerJson = null;
+                    nextCareerSync = 0; lastCareerJson = null; lastLanguage = null;
                     ApplyPendingJob();
                     Logger.LogInfo("Offline calculator page loaded.");
                 };
@@ -434,19 +453,23 @@ namespace PCBSCalculatorHelper
             UpdatePanelCursor();
             if (input != null && input.KeyboardHasFocus &&
                 (ev.type == EventType.KeyDown || ev.type == EventType.KeyUp) &&
-                ev.keyCode != hotkey.Value && ev.keyCode != tweakerKey.Value && ev.keyCode != requirementsKey.Value && ev.keyCode != KeyCode.Escape)
+                ev.keyCode != hotkey.Value && ev.keyCode != tweakerKey.Value && ev.keyCode != requirementsKey.Value && ev.keyCode != KeyCode.Escape &&
+                ev.keyCode != KeyCode.LeftAlt && ev.keyCode != KeyCode.RightAlt)
                 input.Enqueue(ev);
 
             Color oldColor = GUI.color;
             GUI.color = Color.white;
             GUI.DrawTexture(windowRect, calculatorTheme.Background);
-            GUI.Label(new Rect(windowRect.x + 18, windowRect.y + 14, windowRect.width - 36, 28), "Calculator", calculatorTheme.Title);
-            GUI.Label(new Rect(windowRect.x + 18, windowRect.y + 44, windowRect.width - 36, 24), hotkey.Value + " / Esc — hide • Offline", calculatorTheme.Muted);
+            GUI.Label(new Rect(windowRect.x + 18, windowRect.y + 14, windowRect.width - 36, 28), HelperLocalization.Text("Build Helper"), calculatorTheme.Title);
+            GUI.Label(new Rect(windowRect.x + 18, windowRect.y + 44, windowRect.width - 36, 24), hotkey.Value + HelperLocalization.Text(" / Esc — hide • Offline"), calculatorTheme.Muted);
             float x = windowRect.x + 18, y = windowRect.y + 74;
             bool narrow = windowRect.width - 36 < 430;
             float expandW = narrow ? 78 : 104, stepW = narrow ? 24 : 34, numberW = narrow ? 44 : 50;
-            float smallW = narrow ? 54 : 70, gap = narrow ? 6 : 10;
-            if (GUI.Button(new Rect(x, y, expandW, 28), expanded ? "Compact" : "Expand", calculatorTheme.Button)) SetExpanded(!expanded);
+            float smallW = narrow ? 65 : 86, gap = narrow ? 6 : 10;
+            bool oldEnabled = GUI.enabled;
+            bool toolbarEnabled = oldEnabled && Application.isFocused && (Cursor.lockState != CursorLockMode.Locked || panelOwnsCursor);
+            GUI.enabled = toolbarEnabled;
+            if (GUI.Button(new Rect(x, y, expandW, 28), HelperLocalization.Text(expanded ? "Compact" : "Expand"), calculatorTheme.Button)) SetExpanded(!expanded);
             x += expandW + gap;
             if (GUI.Button(new Rect(x, y, stepW, 28), "−", calculatorTheme.Button)) ChangeZoom(-0.1f);
             x += stepW + gap;
@@ -454,23 +477,23 @@ namespace PCBSCalculatorHelper
             x += numberW + gap;
             if (GUI.Button(new Rect(x, y, stepW, 28), "+", calculatorTheme.Button)) ChangeZoom(0.1f);
             x += stepW + gap;
-            bool oldEnabled = GUI.enabled;
-            GUI.enabled = oldEnabled && pageLoaded && clearSupported;
-            if (GUI.Button(new Rect(x, y, smallW, 28), "Clear", calculatorTheme.Button))
+            GUI.enabled = toolbarEnabled && pageLoaded && clearSupported;
+            if (GUI.Button(new Rect(x, y, smallW, 28), HelperLocalization.Text("Clear"), calculatorTheme.Button))
                 browser.CallFunction("pcbsClearCurrentTab", new JSONNode[0]);
-            GUI.enabled = oldEnabled;
-            if (GUI.Button(new Rect(windowRect.xMax - smallW - 18, y, smallW, 28), "Close", calculatorTheme.Button))
+            GUI.enabled = toolbarEnabled;
+            if (GUI.Button(new Rect(windowRect.xMax - smallW - 18, y, smallW, 28), HelperLocalization.Text("Close"), calculatorTheme.Button))
                 SetVisible(false);
+            GUI.enabled = oldEnabled;
             if (browser != null && browser.Texture != null && pageLoaded && error == null)
                 GUI.DrawTexture(pageRect, browser.Texture, ScaleMode.StretchToFill, false);
             else
                 GUI.Label(new Rect(pageRect.x + 20, pageRect.y + 20, pageRect.width - 40, 80),
-                    error ?? "Loading the offline calculator...");
+                    HelperLocalization.Text(error ?? "Loading the offline calculator..."), calculatorTheme.Body);
             GUI.color = oldColor;
             GUI.Label(new Rect(windowRect.x + 18, windowRect.yMax - 28, windowRect.width - 36, 24),
-                expanded ? "Compact returns to the saved side-panel position" : "Alt — cursor • Drag header to move", calculatorTheme.Muted);
+                HelperLocalization.Text(cursorMode.Enabled ? "Alt — hide cursor" : "Alt — show cursor"), calculatorTheme.Muted);
             if (ev.type != EventType.Repaint && ev.type != EventType.Layout && ev.type != EventType.Used &&
-                (ModalVisible || windowRect.Contains(ev.mousePosition) || (input != null && input.KeyboardHasFocus)) &&
+                (ModalVisible || CalculatorPointerOverPanel || (input != null && input.KeyboardHasFocus)) &&
                 (ev.isKey || ev.isMouse || ev.type == EventType.ScrollWheel)) ev.Use();
         }
 
@@ -520,7 +543,7 @@ namespace PCBSCalculatorHelper
             }
             public bool MouseHasFocus { get { return KeyboardHasFocus && owner.pageRect.Contains(Pointer); } }
             public bool KeyboardHasFocus { get { return owner.visible && Application.isFocused &&
-                (owner.expanded || owner.CalculatorPointerOverPanel); } }
+                ((owner.expanded && owner.panelOwnsCursor) || owner.CalculatorPointerOverPanel); } }
             public Vector2 MousePosition
             {
                 get

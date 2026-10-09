@@ -49,3 +49,7 @@ table[id$="Results"] td, table[id$="History"] td, table[id$="Saves"] td { border
 .pcbs-job-review p { margin: 8px 0; }
 .pcbs-job-review ul { margin: 8px 0; padding-left: 22px; }
 .pcbs-job-review summary { cursor: pointer; }
+/* Localized cooling text keeps the upstream Air/Water values intact. */
+td[data-pcbs-display] { font-size: 0; }
+td[data-pcbs-display]::after { content: attr(data-pcbs-display); font-size: 12px; }
+#td3DMarkGpuType[data-pcbs-display]::after { font-size: 14px; }

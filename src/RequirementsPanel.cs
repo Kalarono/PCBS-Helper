@@ -41,7 +41,7 @@ namespace PCBSCalculatorHelper
         private static readonly FieldInfo GameModeField = AccessTools.Field(typeof(GameController), "m_gameMode");
         private static readonly FieldInfo EsportsRequirementsIdField = AccessTools.Field(typeof(FuturLab.EsportsInstalledAndPlayableObjective), "m_requirementsID");
         private bool restrictByCareerLevel;
-        private string query = "", status = "Наведитесь на ПК с заданием или откройте письмо с заказом.";
+        private string query = "", status = "Point at a job PC or open a job email.";
         private Vector2 scroll;
         private Vector2 detailsScroll;
         private float detailsHeight = 530;
@@ -62,8 +62,10 @@ namespace PCBSCalculatorHelper
         public bool Enabled { get; private set; }
         public bool Visible { get; private set; }
         public Func<Vector2, bool> PointerOccluded;
+        public bool CursorEnabled { get; set; }
         public bool WantsCursor { get { return Visible && Application.isFocused &&
-            (placement.IsDragging || Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)); } }
+            (placement.IsDragging || CursorEnabled); } }
+        public void CancelCursorInteraction() { placement.CancelDrag(); }
         public bool PointerOverPanel
         {
             get { return Visible && Cursor.lockState != CursorLockMode.Locked &&
@@ -236,7 +238,7 @@ namespace PCBSCalculatorHelper
                 if (desc != null) jobChoices.Add(new Choice { Key = key, Requirements = desc, JobId = job.GetId() });
             }
             selected = jobChoices.Count > 0 ? jobChoices[0] : null;
-            status = "В выбранном задании нет открытых требований Will it Run?.";
+            status = "This job has no visible Will it Run? requirements.";
             selecting = false;
             RefreshAlternatives();
         }
@@ -244,7 +246,7 @@ namespace PCBSCalculatorHelper
         private bool EnsureData()
         {
             if (loaded) return true;
-            if (CareerDesc.Get() == null) { status = "Загрузите мастерскую, чтобы прочитать требования игры."; return false; }
+            if (CareerDesc.Get() == null) { status = "Load the workshop to read game requirements."; return false; }
             try
             {
                 Dictionary<string, ProgramRequirementsDesc> data = CareerDesc.GetProgramRequirements();
@@ -321,28 +323,28 @@ namespace PCBSCalculatorHelper
             GUI.DrawTexture(rect, background);
             GUI.matrix = Matrix4x4.TRS(new Vector3(rect.x, rect.y, 0), Quaternion.identity, new Vector3(scale, scale, 1));
             float logicalWidth = width / scale;
-            GUI.Label(new Rect(18, 14, logicalWidth - 36, 28), "Системные требования", titleStyle);
-            GUI.Label(new Rect(18, 44, logicalWidth - 36, 24), "Will it Run? • " + toggleKey + (pinned ? " — скрыть" : " — закрепить"), mutedStyle);
+            GUI.Label(new Rect(18, 14, logicalWidth - 36, 28), HelperLocalization.Text("Will it Run? Helper"), titleStyle);
+            GUI.Label(new Rect(18, 44, logicalWidth - 36, 24), toggleKey + HelperLocalization.Text(pinned ? " — hide" : " — pin"), mutedStyle);
             GUI.enabled = !occluded && (WantsCursor || PointerOverPanel);
-            if (GUI.Button(new Rect(18, 77, 185, 30), "Выбрать игру", buttonStyle)) { selecting = !selecting; query = ""; scroll = Vector2.zero; }
-            if (GUI.Button(new Rect(212, 77, logicalWidth - 230, 30), "Из задания", buttonStyle))
+            if (GUI.Button(new Rect(18, 77, 185, 30), HelperLocalization.Text("Choose game"), buttonStyle)) { selecting = !selecting; query = ""; scroll = Vector2.zero; }
+            if (GUI.Button(new Rect(212, 77, logicalWidth - 230, 30), HelperLocalization.Text("From job"), buttonStyle))
             {
                 manual = false; selecting = false; pinned = false; suppressed = false;
                 if (currentJob != null) SelectJob(currentJob);
-                else { selected = null; status = "Наведитесь на ПК или откройте письмо с заданием."; }
+                else { selected = null; status = "Point at a job PC or open a job email."; }
                 if (autoContext == "") pinned = true;
             }
             float footerY = height / scale - 42;
             if (selecting) DrawSelector(logicalWidth, footerY);
             else DrawRequirements(logicalWidth, footerY);
             GUI.enabled = oldEnabled;
-            GUI.Label(new Rect(18, footerY + 8, logicalWidth - 36, 24), "Alt — курсор • Перетаскивай заголовок", mutedStyle);
+            GUI.Label(new Rect(18, footerY + 8, logicalWidth - 36, 24), HelperLocalization.Text(CursorEnabled ? "Alt — hide cursor" : "Alt — show cursor"), mutedStyle);
             GUI.matrix = oldMatrix; GUI.color = oldColor; GUI.depth = oldDepth;
         }
 
         private void DrawSelector(float width, float footerY)
         {
-            GUI.Label(new Rect(18, 120, width - 36, 22), "Поиск игры", labelStyle);
+            GUI.Label(new Rect(18, 120, width - 36, 22), HelperLocalization.Text("Search games"), labelStyle);
             query = GUI.TextField(new Rect(18, 146, width - 36, 30), query);
             List<Choice> filtered = catalog.FindAll(delegate(Choice c)
                 { return c.Requirements.m_uiName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0; });
@@ -360,7 +362,7 @@ namespace PCBSCalculatorHelper
         private void DrawRequirements(float width, float footerY)
         {
             if (!loaded || selected == null)
-            { GUI.Label(new Rect(18, 124, width - 36, 110), status + "\n\nВы можете выбрать игру вручную, нажав \"Выбрать игру\".", bodyStyle); return; }
+            { GUI.Label(new Rect(18, 124, width - 36, 110), HelperLocalization.Text(status) + HelperLocalization.Text("\n\nYou can select a game manually with Choose game."), bodyStyle); return; }
             ProgramRequirementsDesc r = selected.Requirements;
             float viewportHeight = Mathf.Max(80, footerY - 124);
             detailsScroll = GUI.BeginScrollView(new Rect(0, 122, width, viewportHeight), detailsScroll,
@@ -368,29 +370,29 @@ namespace PCBSCalculatorHelper
             width -= 20;
             float y = 0;
             y = Text(Clean(r.m_uiName), y, width, titleStyle);
-            y = Text(TypeLabel(r.m_type) + (manual ? " • выбранная игра" : " • задание №" + selected.JobId), y + 3, width, mutedStyle);
+            y = Text(TypeLabel(r.m_type) + (manual ? HelperLocalization.Text(" • selected game") : HelperLocalization.Text(" • job #") + selected.JobId), y + 3, width, mutedStyle);
             if (jobChoices.Count > 1 && !manual)
             {
-                if (GUI.Button(new Rect(18, y + 4, width - 36, 28), "Следующая цель задания", buttonStyle))
+                if (GUI.Button(new Rect(18, y + 4, width - 36, 28), HelperLocalization.Text("Next job objective"), buttonStyle))
                 { selected = jobChoices[(jobChoices.IndexOf(selected) + 1) % jobChoices.Count]; RefreshAlternatives(); }
                 y += 36;
             }
             y += 12;
-            y = Row("ОЗУ", r.m_ram + " ГБ", y, width);
-            y = Row("Видеопамять", (r.m_gpu == null ? "—" : r.m_gpu.m_vramGb + " ГБ"), y, width);
-            y = Row("Видеокарта", r.m_gpu == null ? "—" : Clean(r.m_gpu.m_uiName), y, width);
-            y = Row("Процессор", r.m_cpu == null ? "—" : Clean(r.m_cpu.m_uiName) + "\n" + SocketLabel(r.m_cpu.m_socket), y, width);
-            y = Row("Диск", r.m_storage + " ГБ", y, width);
+            y = Row(HelperLocalization.Text("RAM"), r.m_ram + HelperLocalization.Text(" GB"), y, width);
+            y = Row(HelperLocalization.Text("VRAM"), (r.m_gpu == null ? "—" : r.m_gpu.m_vramGb + HelperLocalization.Text(" GB")), y, width);
+            y = Row(HelperLocalization.Text("GPU"), r.m_gpu == null ? "—" : Clean(r.m_gpu.m_uiName), y, width);
+            y = Row(HelperLocalization.Text("CPU"), r.m_cpu == null ? "—" : Clean(r.m_cpu.m_uiName) + "\n" + SocketLabel(r.m_cpu.m_socket), y, width);
+            y = Row(HelperLocalization.Text("Storage"), r.m_storage + HelperLocalization.Text(" GB"), y, width);
             y += 12;
             string brand = r.m_cpu == null ? "" : CpuMatcher.Brand(r.m_cpu.m_manufacturer, r.m_cpu.m_uiName);
-            y = Text("Аналог CPU • " + (brand == "AMD" ? "Intel" : "AMD"), y, width, labelStyle);
+            y = Text(HelperLocalization.Text("CPU alternative • ") + (brand == "AMD" ? "Intel" : "AMD"), y, width, labelStyle);
             foreach (CpuCandidate cpu in alternatives)
             {
                 y = Text(Clean(cpu.Name), y + 6, width, bodyStyle);
                 y = Text(cpu.Socket, y, width, mutedStyle);
             }
-            if (alternatives.Count == 0) y = Text(restrictByCareerLevel ? "На текущем уровне подходящих аналогов нет." : "Подходящих CPU другой марки нет.", y + 6, width, mutedStyle);
-            y = Text("Не слабее по оценке Will it Run?.\n" + (restrictByCareerLevel ? "Только открытые детали. " : "Без ограничения по уровню. ") + "Проверь сокет.", y + 12, width, mutedStyle);
+            if (alternatives.Count == 0) y = Text(HelperLocalization.Text(restrictByCareerLevel ? "No suitable alternatives at the current level." : "No suitable CPUs from the other brand."), y + 6, width, mutedStyle);
+            y = Text(HelperLocalization.Text("At least as fast in Will it Run?.\n") + HelperLocalization.Text(restrictByCareerLevel ? "Unlocked parts only. " : "No level restriction. ") + HelperLocalization.Text("Check the socket."), y + 12, width, mutedStyle);
             if (Event.current.type == EventType.Repaint) detailsHeight = y + 12;
             GUI.EndScrollView();
         }
@@ -427,7 +429,7 @@ namespace PCBSCalculatorHelper
         }
 
         internal static string TypeLabel(ProgramRequirementsDesc.Type type)
-        { return type == ProgramRequirementsDesc.Type.rec ? "Рекомендуемые" : type == ProgramRequirementsDesc.Type.min ? "Минимальные" : "4K"; }
+        { return HelperLocalization.Text(type == ProgramRequirementsDesc.Type.rec ? "Recommended" : type == ProgramRequirementsDesc.Type.min ? "Minimum" : "4K"); }
         private static string Clean(string value) { return Regex.Replace(value ?? "", "<[^>]+>", ""); }
         private static string SocketLabel(CpuSocket socket)
         {

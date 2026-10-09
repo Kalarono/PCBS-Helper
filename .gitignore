@@ -1,0 +1,53 @@
+# Сборки, пакеты релиза, скачанные зависимости и тестовые данные
+/build/
+bin/
+obj/
+node_modules/
+
+# Скомпилированные файлы и архивы: публикуются через GitHub Releases
+*.dll
+*.exe
+*.pdb
+*.mdb
+*.zip
+*.7z
+*.rar
+
+# Локальный путь к игре и настройки окружения
+/build.local.json
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Скачанный сторонний калькулятор и информация о его загрузке
+# Собственные JS/CSS в assets остаются в репозитории
+/assets/calculator.html
+/assets/calculator-source.json
+
+# Игровые файлы, пользовательские данные и резервные копии
+/BepInEx/
+/PCBS_Data/
+/saves/
+/backups/
+/PCBSHelperBackups/
+
+# Логи, кэш и временные файлы
+*.log
+*.tmp
+*.temp
+*.bak
+__pycache__/
+*.pyc
+.cache/
+
+# Личные файлы редакторов
+.vs/
+.idea/
+*.user
+*.suo
+
+# Служебные файлы Windows/macOS
+Thumbs.db
+Desktop.ini
+.DS_Store

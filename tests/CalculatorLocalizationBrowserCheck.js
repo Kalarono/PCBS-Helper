@@ -30,19 +30,18 @@
     pcbsImportJob(job); BuildMakerGetBuilds();
     var form = document.getElementById('formBuildMaker'), table = document.getElementById('tableBuildMakerResults');
     check(table.rows.length > 1 && form.selectBuildMakerGpuType.value === 'Air' && form.pcbsCpuBrand.value === 'Intel', 'Russian build search preserves canonical brand and cooling filters.');
-    check(table.rows[1].querySelector('.buttonSave').textContent === 'Сохранить', 'Dynamically generated Save buttons are localized synchronously.');
+    check(table.rows[1].querySelector('.buttonSave').textContent === 'Заказать', 'Dynamically generated Order buttons are localized synchronously.');
     check(table.rows[1].cells[6].textContent === 'Air' && table.rows[1].cells[6].getAttribute('data-pcbs-display') === 'Воздушное', 'Result type labels keep canonical innerHTML for the upstream saver.');
     var review = document.getElementById('divBuildMakerJobReview');
     check(review.querySelector('strong').textContent === 'Задание №1: Fixture title' && review.textContent.indexOf('Данные задания перенесены.') >= 0, 'Imported helper prose uses the interface locale, even for an English import.');
     check(review.textContent.indexOf('A game-provided objective') >= 0, 'Game-provided objective text is preserved.');
-    table.rows[1].querySelector('.buttonSave').click();
-    document.getElementById('formBuildMakerSave').inputBuildMakerSaveFormComment.value = 'Air';
-    ProcessBuildMakerSave(true); updateHistory();
+    // Legacy history entries retain their canonical schema despite replacing the result action.
+    savePcBuild(table.rows[1], 'build', 'Air'); updateHistory();
     var saved = document.getElementById('tableBuildMakerSaves');
     check(saved.rows[1].cells[6].textContent === 'Air' && saved.rows[1].cells[13].textContent === 'Air', 'Saving in Russian preserves canonical cooling and the user comment.');
     pcbsSetLanguage('en-US');
     check(review.querySelector('strong').textContent === 'Job #1: Fixture title' && review.textContent.indexOf('Job data imported.') >= 0, 'Saved job context switches back to English.');
-    check(table.rows[1].querySelector('.buttonSave').textContent === 'Save' && saved.rows[1].cells[13].textContent === 'Air', 'Dynamic buttons switch back and user comments remain untouched.');
+    check(table.rows[1].querySelector('.buttonSave').textContent === 'Order' && saved.rows[1].cells[13].textContent === 'Air', 'Dynamic buttons switch back and user comments remain untouched.');
     pcbsSetLanguage('ru'); pcbsFlush();
     check(pcbsCaptured.tabs.div3DMarkScoreCalculator.texts.td3DMarkGpuType === 'Air' && pcbsCaptured.tabs.divBuildMaker.rows[0][6].text === 'Air', 'Persistent state remains independent of display language.');
     sessionStorage.setItem('pcbs-fixture-state', JSON.stringify(pcbsCaptured));

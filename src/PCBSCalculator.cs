@@ -46,6 +46,8 @@ namespace PCBSCalculatorHelper
         private string lastLanguage;
         private bool clearSupported = true;
         private JobHelperButton jobHelper;
+        private PurchaseByClick purchaseByClick;
+        private readonly Dictionary<string, JSONNode> completedBuildOrders = new Dictionary<string, JSONNode>();
         private JSONNode pendingJobImport;
         private bool panelOwnsCursor;
         private readonly PanelCursorMode cursorMode = new PanelCursorMode();
@@ -71,7 +73,7 @@ namespace PCBSCalculatorHelper
             requirementsKey = Config.Bind("Controls", "RequirementsKey", KeyCode.F3,
                 "Toggle the game requirements side panel. Press Alt to toggle its cursor.");
             bool autoRequirements = Config.Bind("Display", "AutoShowRequirements", true,
-                "Show game requirements automatically beside the visible email/PC job. F3 pins the panel.").Value;
+                "Show game requirements automatically while assembling a job PC. Emails use the Will it Run? button; F3 pins the panel.").Value;
             calculatorEnabled = Config.Bind("Helpers", "CalculatorEnabled", true,
                 "Enable the calculator and its hotkey. Also controlled in Tweaker.");
             requirementsEnabled = Config.Bind("Helpers", "WillItRunEnabled", true,
@@ -91,7 +93,9 @@ namespace PCBSCalculatorHelper
                 delegate(bool value) { requirements.SetEnabled(value); UpdatePanelCursor(); });
             htmlPath = Path.Combine(Path.GetDirectoryName(Info.Location), "calculator.html");
             calculatorSession = new CalculatorSession(Paths.ConfigPath, Logger);
-            jobHelper = new JobHelperButton(delegate { return calculatorEnabled.Value; }, OpenJobCalculator, Logger);
+            jobHelper = new JobHelperButton(delegate { return calculatorEnabled.Value; }, OpenJobCalculator,
+                delegate { return requirementsEnabled.Value; }, OpenJobRequirements, Logger);
+            purchaseByClick = new PurchaseByClick(delegate { return tweaker.ClickPurchaseEnabled; }, Logger);
             Logger.LogInfo("Calculator ready; waiting for the game's input system before installing guards.");
         }
 
@@ -115,6 +119,7 @@ namespace PCBSCalculatorHelper
                 harmony.Patch(emailSet, null, new HarmonyMethod(typeof(CalculatorPlugin), "OnEmailJobShown"), null, null, null);
                 MethodInfo emailPane = AccessTools.Method(typeof(EmailPane), "UpdateJobInfo", Type.EmptyTypes);
                 harmony.Patch(emailPane, null, new HarmonyMethod(typeof(CalculatorPlugin), "OnEmailPaneUpdated"), null, null, null);
+                purchaseByClick.Install(harmony);
                 tweaker.Apply();
                 Logger.LogInfo("Installed input guards. Press " + hotkey.Value + " to open the offline calculator.");
             }
@@ -207,13 +212,66 @@ namespace PCBSCalculatorHelper
             pendingJobImport = null;
         }
 
+        private void OrderCalculatorBuild(JSONNode args)
+        {
+            string id = null;
+            List<BuildOrderSkip> skipped = new List<BuildOrderSkip>();
+            int added = 0;
+            string code = "invalid";
+            try
+            {
+                if (args.Count != 1 || !(args[0].Value is string)) throw new FormatException("Invalid build order bridge arguments.");
+                List<BuildOrderItem> request = CalculatorBuildOrder.Read((string)args[0], out id);
+                JSONNode cached;
+                if (completedBuildOrders.TryGetValue(id, out cached))
+                { browser.CallFunction("pcbsBuildOrderResult", new JSONNode[] { cached }); return; }
+                if (visible && calculatorEnabled.Value && Application.isFocused)
+                {
+                    CareerStatus career = CareerStatus.Get();
+                    if (career == null) code = "nocareer";
+                    else
+                    {
+                        added = CalculatorBuildOrder.AddAvailable(career, PartsDatabase.GetAllParts(), request, out skipped);
+                        code = skipped.Count == 0 ? "ok" : added > 0 ? "partial" : "failed";
+                        if (added > 0) purchaseByClick.RefreshCarts();
+                        foreach (BuildOrderSkip item in skipped)
+                            Logger.LogWarning("Build order skipped " + item.Item.Quantity + " x " + item.Item.Name + ": " + item.Reason);
+                    }
+                }
+            }
+            catch (Exception ex) { Logger.LogWarning("Could not order a calculator build: " + ex.Message); }
+            JSONNode reply = new JSONNode(JSONNode.NodeType.Object);
+            reply["id"] = id ?? ""; reply["ok"] = added > 0;
+            reply["code"] = code; reply["count"] = added;
+            JSONNode warnings = new JSONNode(JSONNode.NodeType.Array);
+            foreach (BuildOrderSkip item in skipped)
+            {
+                JSONNode warning = new JSONNode(JSONNode.NodeType.Object);
+                warning["name"] = item.Item.Name; warning["quantity"] = item.Item.Quantity; warning["reason"] = item.Reason;
+                warnings.Add(warning);
+            }
+            reply["skipped"] = warnings;
+            // Cache partial orders too: accepted parts must not be duplicated on a retry.
+            if (added > 0) completedBuildOrders[id] = reply;
+            browser.CallFunction("pcbsBuildOrderResult", new JSONNode[] { reply });
+        }
+
+        private void OpenJobRequirements(Job job)
+        {
+            if (!requirementsEnabled.Value) return;
+            SetVisible(false); tweaker.Hide(); requirements.SetDisplayBlocked(false);
+            requirements.ShowJob(job);
+            ReleaseInputGrace(); UpdatePanelCursor();
+        }
+
         private void PollHotkey()
         {
             if (polledFrame == Time.frameCount) return;
             polledFrame = Time.frameCount;
             if (waitForMouseRelease && !Input.GetMouseButton(0) && !Input.GetMouseButton(1) && !Input.GetMouseButton(2))
                 waitForMouseRelease = false;
-            if (!Application.isFocused) { calculatorPlacement.CancelDrag(); UpdatePanelCursor(); return; }
+            if (!Application.isFocused)
+            { calculatorPlacement.CancelDrag(); if (input != null) input.Clear(); UpdatePanelCursor(); return; }
             if (Input.GetKeyDown(tweakerKey.Value))
             {
                 if (!tweaker.Visible) SetVisible(false);
@@ -234,7 +292,7 @@ namespace PCBSCalculatorHelper
             }
             SyncPanelVisibility();
             bool altPressed = Input.GetKeyDown(KeyCode.LeftAlt) || Input.GetKeyDown(KeyCode.RightAlt);
-            cursorMode.Update(CursorContext, Application.isFocused, altPressed);
+            cursorMode.Update(CursorContext, Application.isFocused, altPressed, GameCursorAvailable);
             if (altPressed && !cursorMode.Enabled)
             {
                 calculatorPlacement.CancelDrag(); requirements.CancelCursorInteraction();
@@ -248,9 +306,17 @@ namespace PCBSCalculatorHelper
         private int CursorContext { get { return visible ? 1 : requirements != null && requirements.Visible ? 2 : 0; } }
         private bool ModalVisible { get { return (visible && expanded && cursorMode.Enabled) || (tweaker != null && tweaker.Visible); } }
 
+        private bool GameCursorAvailable
+        {
+            // While captured, Unity exposes our cursor; use the game's saved state instead.
+            get { return panelOwnsCursor
+                ? panelPreviousLock != CursorLockMode.Locked && panelPreviousVisible
+                : Cursor.lockState != CursorLockMode.Locked && Cursor.visible; }
+        }
+
         private bool CalculatorPointerOverPanel
         {
-            get { return visible && Cursor.lockState != CursorLockMode.Locked &&
+            get { return visible && (panelOwnsCursor || Cursor.lockState != CursorLockMode.Locked) &&
                 windowRect.Contains(new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y)); }
         }
 
@@ -259,9 +325,11 @@ namespace PCBSCalculatorHelper
 
         private void UpdatePanelCursor()
         {
-            cursorMode.Update(CursorContext, Application.isFocused, false);
+            cursorMode.Update(CursorContext, Application.isFocused, false, GameCursorAvailable);
             if (requirements != null) requirements.CursorEnabled = cursorMode.Enabled;
-            bool takeCursor = Application.isFocused && ((tweaker != null && tweaker.Visible) || (visible && (cursorMode.Enabled || calculatorPlacement.IsDragging)) || (requirements != null && requirements.WantsCursor));
+            bool takeCursor = Application.isFocused && ((tweaker != null && tweaker.Visible) ||
+                (!GameCursorAvailable && ((visible && (cursorMode.Enabled || calculatorPlacement.IsDragging)) ||
+                (requirements != null && requirements.WantsCursor))));
             if (takeCursor && !panelOwnsCursor)
             {
                 panelPreviousLock = Cursor.lockState;
@@ -362,6 +430,7 @@ namespace PCBSCalculatorHelper
                     EmbeddedAssets.Read("calculator-job-import.js", assembly, assetDir) + "</script><script>" +
                     EmbeddedAssets.Read("calculator-state.js", assembly, assetDir) + "</script><script>" +
                     EmbeddedAssets.Read("calculator-localization.js", assembly, assetDir) + "</script></body>");
+                html = html.Replace("</body>", "<script>" + EmbeddedAssets.Read("calculator-build-order.js", assembly, assetDir) + "</script></body>");
                 browserObject = new GameObject("PCBS Calculator Browser");
                 DontDestroyOnLoad(browserObject);
                 input = new OverlayInput(this);
@@ -380,6 +449,7 @@ namespace PCBSCalculatorHelper
                     browser.RegisterFunction("pcbsCalculatorTab", delegate(JSONNode args) {
                         if (args.Count == 1 && args[0].Value is bool) clearSupported = (bool)args[0];
                     });
+                    browser.RegisterFunction("pcbsOrderBuild", OrderCalculatorBuild);
                     nextCareerSync = 0; lastCareerJson = null; lastLanguage = null;
                     ApplyPendingJob();
                     Logger.LogInfo("Offline calculator page loaded.");
@@ -439,6 +509,7 @@ namespace PCBSCalculatorHelper
 
         private void OnGUI()
         {
+            if (purchaseByClick != null) purchaseByClick.DrawNotice();
             SyncPanelVisibility();
             if (requirements != null) requirements.Draw();
             if (tweaker != null) tweaker.Draw();
@@ -456,6 +527,11 @@ namespace PCBSCalculatorHelper
                 ev.keyCode != hotkey.Value && ev.keyCode != tweakerKey.Value && ev.keyCode != requirementsKey.Value && ev.keyCode != KeyCode.Escape &&
                 ev.keyCode != KeyCode.LeftAlt && ev.keyCode != KeyCode.RightAlt)
                 input.Enqueue(ev);
+            if (input != null && ev.type == EventType.ScrollWheel && input.MouseHasFocus && pageRect.Contains(ev.mousePosition))
+            {
+                input.EnqueueScroll(ev.delta);
+                ev.Use();
+            }
 
             Color oldColor = GUI.color;
             GUI.color = Color.white;
@@ -511,6 +587,7 @@ namespace PCBSCalculatorHelper
             if (requirements != null) requirements.Dispose();
             if (tweaker != null) tweaker.Dispose();
             if (jobHelper != null) jobHelper.Dispose();
+            if (purchaseByClick != null) purchaseByClick.Dispose();
             calculatorTheme.Dispose();
             calculatorPlacement.CancelDrag();
             if (harmony != null) harmony.UnpatchSelf();
@@ -522,20 +599,25 @@ namespace PCBSCalculatorHelper
             private readonly CalculatorPlugin owner;
             private List<Event> pending = new List<Event>();
             private List<Event> current = new List<Event>();
+            private readonly BrowserScrollBuffer scroll = new BrowserScrollBuffer();
             public OverlayInput(CalculatorPlugin owner)
             {
                 this.owner = owner;
                 BrowserCursor = new BrowserCursor();
                 InputSettings = new BrowserInputSettings();
+                // IMGUI uses line deltas (normally three per wheel notch), rather than raw notches.
+                InputSettings.scrollSpeed = 40;
             }
             public void Enqueue(Event ev) { pending.Add(new Event(ev)); }
-            public void Clear() { pending.Clear(); current.Clear(); }
+            public void EnqueueScroll(Vector2 delta) { scroll.Enqueue(delta.x, delta.y); }
+            public void Clear() { pending.Clear(); current.Clear(); scroll.Clear(); }
             public void InputUpdate()
             {
                 List<Event> swap = current;
                 current = pending;
                 pending = swap;
                 pending.Clear();
+                scroll.Advance(MouseHasFocus);
             }
             private Vector2 Pointer
             {
@@ -565,7 +647,7 @@ namespace PCBSCalculatorHelper
                     return buttons;
                 }
             }
-            public Vector2 MouseScroll { get { return MouseHasFocus ? Input.mouseScrollDelta : Vector2.zero; } }
+            public Vector2 MouseScroll { get { return MouseHasFocus ? new Vector2(scroll.X, scroll.Y) : Vector2.zero; } }
             public List<Event> KeyEvents { get { return current; } }
             public BrowserCursor BrowserCursor { get; private set; }
             public BrowserInputSettings InputSettings { get; private set; }

@@ -99,6 +99,15 @@ namespace PCBSCalculatorHelper
             }
         }
 
+        public void ShowJob(Job job)
+        {
+            if (!Enabled || job == null) return;
+            placement.CancelDrag();
+            currentJob = job; manual = false;
+            SelectJob(job);
+            pinned = true; suppressed = false; Visible = !displayBlocked;
+        }
+
         public void Update()
         {
             if (!Application.isFocused) placement.CancelDrag();
@@ -108,9 +117,9 @@ namespace PCBSCalculatorHelper
                 nextLoadAttempt = Time.unscaledTime + 2;
                 if (EnsureData() && currentJob != null && !manual) SelectJob(currentJob);
             }
-            if (!autoShow) { Visible = pinned && !displayBlocked; return; }
             Job activeJob;
             string context = FindActiveTask(out activeJob);
+            if (!autoShow) { autoContext = context; Visible = pinned && !displayBlocked; return; }
             if (context != autoContext)
             {
                 autoContext = context;
@@ -123,7 +132,8 @@ namespace PCBSCalculatorHelper
             }
             if (activeJob != null && !manual && !pinned && !System.Object.ReferenceEquals(currentJob, activeJob))
                 ObserveJob(activeJob);
-            bool show = !displayBlocked && (pinned || (!suppressed && activeJob != null && !manual && selected != null));
+            bool show = !displayBlocked && (pinned || (!suppressed && context.StartsWith("pc:", StringComparison.Ordinal) &&
+                activeJob != null && !manual && selected != null));
             if (!show) placement.CancelDrag();
             Visible = show;
         }
@@ -157,7 +167,8 @@ namespace PCBSCalculatorHelper
                 job = EmailJobField.GetValue(observedEmail) as Job;
                 if (job != null) return "email:" + job.GetId();
             }
-            if (!(state is WalkingState) && !(state is WorkingOnComputerStateBase) && !(state is LookingAtMonitorState)) return "";
+            // Emails provide context for an explicit button/F3 action; only assembly opens automatically.
+            if (!(state is WorkingOnComputerStateBase)) return "";
             JobStatus status = observedStatus != null ? observedStatus : WorkshopUI.m_jobStatus;
             if (status == null || !status.isActiveAndEnabled) return "";
             CanvasGroup group = status.GetComponent<CanvasGroup>();
@@ -218,29 +229,44 @@ namespace PCBSCalculatorHelper
             jobChoices.Clear();
             foreach (Objective objective in job.GetObjectives())
             {
-                if (objective.IsInvalid()) continue;
-                if (objective.IsHidden() && !DebugVars.s_showHiddenObjectives &&
-                    !(objective.IsHiddenByDiagnose() && DebugVars.s_showDiagnoseObjectives)) continue;
-                CanPlayObjective play = objective as CanPlayObjective;
-                string key = null;
-                ProgramRequirementsDesc desc = null;
-                if (play != null)
-                { key = play.GetSoftware(); desc = CareerDesc.GetProgramRequirements(key); }
-                else
-                {
-                    FuturLab.EsportsInstalledAndPlayableObjective esports = objective as FuturLab.EsportsInstalledAndPlayableObjective;
-                    if (esports != null)
-                    {
-                        key = EsportsRequirementsIdField.GetValue(esports) as string;
-                        if (!String.IsNullOrEmpty(key)) desc = CareerDesc.GetProgramRequirements(key);
-                    }
-                }
-                if (desc != null) jobChoices.Add(new Choice { Key = key, Requirements = desc, JobId = job.GetId() });
+                string key;
+                ProgramRequirementsDesc desc;
+                if (TryGetRequirements(objective, out key, out desc))
+                    jobChoices.Add(new Choice { Key = key, Requirements = desc, JobId = job.GetId() });
             }
             selected = jobChoices.Count > 0 ? jobChoices[0] : null;
             status = "This job has no visible Will it Run? requirements.";
             selecting = false;
             RefreshAlternatives();
+        }
+
+        public static bool HasJobRequirements(Job job)
+        {
+            if (job == null) return false;
+            foreach (Objective objective in job.GetObjectives())
+            {
+                string key;
+                ProgramRequirementsDesc desc;
+                if (TryGetRequirements(objective, out key, out desc)) return true;
+            }
+            return false;
+        }
+
+        private static bool TryGetRequirements(Objective objective, out string key, out ProgramRequirementsDesc desc)
+        {
+            key = null; desc = null;
+            if (objective == null || objective.IsInvalid()) return false;
+            if (objective.IsHidden() && !DebugVars.s_showHiddenObjectives &&
+                !(objective.IsHiddenByDiagnose() && DebugVars.s_showDiagnoseObjectives)) return false;
+            CanPlayObjective play = objective as CanPlayObjective;
+            if (play != null) key = play.GetSoftware();
+            else
+            {
+                FuturLab.EsportsInstalledAndPlayableObjective esports = objective as FuturLab.EsportsInstalledAndPlayableObjective;
+                if (esports != null) key = EsportsRequirementsIdField.GetValue(esports) as string;
+            }
+            if (!String.IsNullOrEmpty(key)) desc = CareerDesc.GetProgramRequirements(key);
+            return desc != null;
         }
 
         private bool EnsureData()

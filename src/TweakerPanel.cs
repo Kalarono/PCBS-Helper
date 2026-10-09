@@ -10,6 +10,7 @@ namespace PCBSCalculatorHelper
     internal sealed class TweakerPanel
     {
         private readonly ConfigEntry<bool> allApps, instant3DMark, diagnose, hidden;
+        private readonly ConfigEntry<bool> clickPurchase;
         private readonly ManualLogSource log;
         private readonly HelperTheme theme = new HelperTheme();
         private readonly Action objectivesChanged;
@@ -18,6 +19,7 @@ namespace PCBSCalculatorHelper
         private readonly ConfigEntry<bool> calculatorEnabled, requirementsEnabled;
         private readonly Action<bool> calculatorChanged, requirementsChanged;
         public bool Visible { get; private set; }
+        public bool ClickPurchaseEnabled { get { return clickPurchase.Value; } }
 
         public TweakerPanel(ConfigFile config, ManualLogSource log, KeyCode key, KeyCode calculatorKey, KeyCode requirementsKey, Action objectivesChanged,
             ConfigEntry<bool> calculatorEnabled, ConfigEntry<bool> requirementsEnabled,
@@ -38,6 +40,8 @@ namespace PCBSCalculatorHelper
             }
             allApps = config.Bind("Tweaker", "InstallAllApps", Legacy(legacy, "InstallAllApps"), "Install All Apps.");
             instant3DMark = config.Bind("Tweaker", "Instant3DMark", Legacy(legacy, "Instant3DMark"), "Instant 3DMark.");
+            clickPurchase = config.Bind("Tweaker", "ClickPurchase", false,
+                "Left-click a part in PC stats opened from an email to add one new part to its shop cart.");
             diagnose = config.Bind("Tweaker", "ShowDiagnoseObjectives", Legacy(legacy, "ShowDiagnose"), "Show Diagnose Objectives.");
             hidden = config.Bind("Tweaker", "ShowHiddenObjectives", Legacy(legacy, "ShowHidden"), "Show Hidden Objectives.");
         }
@@ -63,7 +67,7 @@ namespace PCBSCalculatorHelper
         {
             float scale = Mathf.Clamp(Screen.height / 1080f, 0.65f, 1.2f);
             return placement.Resolve(new Rect(20 * scale, 118 * scale,
-                Mathf.Min(424 * scale, Screen.width * 0.46f), 450 * scale));
+                Mathf.Min(424 * scale, Screen.width * 0.46f), 500 * scale));
         }
 
         public bool Contains(Vector2 point) { return Visible && GetRect().Contains(point); }
@@ -86,16 +90,17 @@ namespace PCBSCalculatorHelper
             GUI.Label(new Rect(18, 44, w - 36, 24), key + HelperLocalization.Text("/Esc — close window"), theme.Muted);
             bool changed = Row(allApps, "Install All Apps", 80, w);
             changed |= Row(instant3DMark, "Instant 3DMark", 130, w);
-            changed |= Row(diagnose, "Show Diagnose Objectives", 180, w);
-            changed |= Row(hidden, "Show Hidden Objectives", 230, w);
+            Row(clickPurchase, "Click Purchase", 180, w);
+            changed |= Row(diagnose, "Show Diagnose Objectives", 230, w);
+            changed |= Row(hidden, "Show Hidden Objectives", 280, w);
             if (changed)
             {
                 Apply();
                 if (objectivesChanged != null) objectivesChanged();
             }
-            if (Row(calculatorEnabled, "Build Helper", 290, w, calculatorKey)) calculatorChanged(calculatorEnabled.Value);
-            if (Row(requirementsEnabled, "Will it Run? Helper", 340, w, requirementsKey)) requirementsChanged(requirementsEnabled.Value);
-            if (GUI.Button(new Rect(18, 402, w - 36, 30), HelperLocalization.Text("Close"), theme.Button)) Hide();
+            if (Row(calculatorEnabled, "Build Helper", 340, w, calculatorKey)) calculatorChanged(calculatorEnabled.Value);
+            if (Row(requirementsEnabled, "Will it Run? Helper", 390, w, requirementsKey)) requirementsChanged(requirementsEnabled.Value);
+            if (GUI.Button(new Rect(18, 452, w - 36, 30), HelperLocalization.Text("Close"), theme.Button)) Hide();
             GUI.matrix = oldMatrix; GUI.depth = oldDepth;
         }
 

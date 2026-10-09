@@ -32,7 +32,7 @@ foreach ($referenceFile in $referenceFiles) {
 $compilerArguments = @('/noconfig','/nologo','/target:library','/nostdlib+','/optimize+','/platform:anycpu')
 $compilerArguments += '/out:' + (Join-Path $packagePath 'PCBS-Helper.dll')
 $compilerArguments += $referenceFiles | ForEach-Object { '/reference:' + $_ }
-$assetNames = @('calculator.html','embedded-ui.js','calculator-theme.css','calculator-state-codec.js','calculator-state.js','calculator-job-rules.js','calculator-job-import.js','calculator-localization.js')
+$assetNames = @('calculator.html','embedded-ui.js','calculator-theme.css','calculator-state-codec.js','calculator-state.js','calculator-job-rules.js','calculator-job-import.js','calculator-localization.js','calculator-build-order.js')
 foreach ($assetName in $assetNames) {
     $assetFile = Join-Path $projectPath ('assets\' + $assetName)
     if (-not (Test-Path -LiteralPath $assetFile)) { throw "Calculator asset missing: $assetName. Use -FetchCalculator if calculator.html is missing." }
@@ -47,7 +47,7 @@ foreach ($assetName in $assetNames) {
     if (Test-Path -LiteralPath $obsoleteFile) { Remove-Item -LiteralPath $obsoleteFile }
 }
 Copy-Item -LiteralPath (Join-Path $projectPath 'README.md') -Destination $packagePath -Force
-Copy-Item -LiteralPath (Join-Path $projectPath 'README.md') -Destination (Join-Path $packagePath 'README.txt') -Force
+Copy-Item -LiteralPath (Join-Path $projectPath 'README.txt') -Destination $packagePath -Force
 Copy-Item -LiteralPath (Join-Path $projectPath 'CHANGELOG.md') -Destination $packagePath -Force
 Copy-Item -LiteralPath (Join-Path $projectPath 'DEVELOPMENT.md') -Destination $packagePath -Force
 if ($Test) {
@@ -66,6 +66,26 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw 'Cursor toggle tests could not compile.' }
     & $cursorTestExe
     if ($LASTEXITCODE -ne 0) { throw 'Cursor toggle tests failed.' }
+    $scrollTestExe = Join-Path $buildPath 'BrowserScrollBufferTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$scrollTestExe" (Join-Path $projectPath 'src\BrowserScrollBuffer.cs') (Join-Path $projectPath 'tests\BrowserScrollBufferTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Browser scroll tests could not compile.' }
+    & $scrollTestExe
+    if ($LASTEXITCODE -ne 0) { throw 'Browser scroll tests failed.' }
+    $emailLayoutTestExe = Join-Path $buildPath 'EmailButtonLayoutTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$emailLayoutTestExe" (Join-Path $projectPath 'src\EmailButtonLayout.cs') (Join-Path $projectPath 'tests\EmailButtonLayoutTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Email button layout tests could not compile.' }
+    & $emailLayoutTestExe
+    if ($LASTEXITCODE -ne 0) { throw 'Email button layout tests failed.' }
+    $clickPurchaseTestExe = Join-Path $buildPath 'ClickPurchaseCartTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$clickPurchaseTestExe" (Join-Path $projectPath 'src\ClickPurchaseCart.cs') (Join-Path $projectPath 'tests\ClickPurchaseCartTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Click purchase cart tests could not compile.' }
+    & $clickPurchaseTestExe
+    if ($LASTEXITCODE -ne 0) { throw 'Click purchase cart tests failed.' }
+    $buildOrderTestExe = Join-Path $buildPath 'CalculatorBuildOrderTests.exe'
+    & $compilerPath /nologo /target:exe /main:CalculatorBuildOrderTests "/out:$buildOrderTestExe" "/reference:$(Join-Path $managedPath 'ZFBrowser.dll')" (Join-Path $projectPath 'src\ClickPurchaseCart.cs') (Join-Path $projectPath 'src\CalculatorBuildOrder.cs') (Join-Path $projectPath 'tests\ClickPurchaseCartTests.cs') (Join-Path $projectPath 'tests\CalculatorBuildOrderTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Calculator build order tests could not compile.' }
+    & $buildOrderTestExe $managedPath (Join-Path $buildPath 'game-catalog\matching.json')
+    if ($LASTEXITCODE -ne 0) { throw 'Calculator build order tests failed.' }
     $careerTestExe = Join-Path $buildPath 'CareerProgressTests.exe'
     & $compilerPath /nologo /target:exe "/out:$careerTestExe" (Join-Path $projectPath 'src\CareerProgress.cs') (Join-Path $projectPath 'tests\CareerProgressTests.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Career progress tests could not compile.' }

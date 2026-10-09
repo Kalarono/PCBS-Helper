@@ -1,4 +1,4 @@
-# Для разработчиков PCBS Helper
+# Для разработчиков PCBS-Helper
 
 Инструкция для игроков находится в [README.md](README.md). Этот файл описывает сборку из исходников, проверки и подготовку пакета.
 
@@ -9,7 +9,7 @@ Framework из Windows. DLL игры берутся **только из лока
 Для сборки нужен `assets/calculator.html`. Если файла нет, добавьте
 `-FetchCalculator`: скрипт загрузит его с исходной страницы автора.
 HTML, CSS и JavaScript встраиваются в DLL как ресурсы; для установки мода
-достаточно BepInEx 5 и `PCBSCalculator.dll`.
+достаточно BepInEx 5 и `PCBS-Helper.dll`.
 
 ```powershell
 .\Build.ps1 -GamePath 'D:\SteamLibrary\steamapps\common\PC Building Simulator' -Test
@@ -23,13 +23,11 @@ HTML, CSS и JavaScript встраиваются в DLL как ресурсы; �
 { "gamePath": "D:\\SteamLibrary\\steamapps\\common\\PC Building Simulator" }
 ```
 
-Пакет: `build/package/PCBSCalculator/`. Файл `PCBSCalculator.dll` сам содержит
-все файлы калькулятора. Скопируйте его в `BepInEx/plugins/PCBSCalculator/`.
-Скрипт `Build.ps1 -Install` сохраняет предыдущую DLL в `build/backups/`, переносит старую
-`Cheat Menu/CheatMod.dll` туда же и не меняет игровые DLL или сохранения.
-Старый CheatMod не должен оставаться в plugins, иначе он тоже обработает F1.
-InstantDustClean остаётся отдельным модом. Для удаления хелпера перенесите папку
-PCBSCalculator за пределы plugins.
+Пакет: `build/package/PCBS-Helper/`. Файл `PCBS-Helper.dll` сам содержит
+все файлы калькулятора. Скопируйте его в `BepInEx/plugins/PCBS-Helper/`.
+Скрипт `Build.ps1 -Install` сохраняет заменяемые файлы в `build/backups/`
+и не меняет игровые DLL или сохранения. Для удаления хелпера перенесите папку
+PCBS-Helper за пределы plugins.
 
 ## Калькулятор и публикация исходников
 

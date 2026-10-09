@@ -10,7 +10,7 @@ using ZenFulcrum.EmbeddedBrowser;
 
 namespace PCBSCalculatorHelper
 {
-    [BepInPlugin("local.pcbs.calculator", "PCBS Helper", "1.2.1")]
+    [BepInPlugin("local.pcbs.calculator", "PCBS-Helper", "1.2.1")]
     [DefaultExecutionOrder(-32000)]
     public sealed class CalculatorPlugin : BaseUnityPlugin
     {

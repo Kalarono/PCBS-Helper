@@ -14,9 +14,9 @@ if (-not $GamePath) {
 }
 $GamePath = (Resolve-Path -LiteralPath $GamePath).Path
 $managedPath = Join-Path $GamePath 'PCBS_Data\Managed'
-$pluginPath = Join-Path $GamePath 'BepInEx\plugins\PCBSCalculator'
+$pluginPath = Join-Path $GamePath 'BepInEx\plugins\PCBS-Helper'
 $buildPath = Join-Path $projectPath 'build'
-$packagePath = Join-Path $buildPath 'package\PCBSCalculator'
+$packagePath = Join-Path $buildPath 'package\PCBS-Helper'
 New-Item -ItemType Directory -Path $packagePath -Force | Out-Null
 $compilerPath = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compilerPath)) { throw 'Windows .NET Framework C# compiler not found.' }
@@ -30,7 +30,7 @@ foreach ($referenceFile in $referenceFiles) {
     if (-not (Test-Path -LiteralPath $referenceFile)) { throw "Required game/mod reference missing: $referenceFile" }
 }
 $compilerArguments = @('/noconfig','/nologo','/target:library','/nostdlib+','/optimize+','/platform:anycpu')
-$compilerArguments += '/out:' + (Join-Path $packagePath 'PCBSCalculator.dll')
+$compilerArguments += '/out:' + (Join-Path $packagePath 'PCBS-Helper.dll')
 $compilerArguments += $referenceFiles | ForEach-Object { '/reference:' + $_ }
 $assetNames = @('calculator.html','embedded-ui.js','calculator-theme.css','calculator-state-codec.js','calculator-state.js','calculator-job-rules.js','calculator-job-import.js')
 foreach ($assetName in $assetNames) {
@@ -77,13 +77,23 @@ if ($Test) {
 if ($Install) {
     if (Get-Process PCBS -ErrorAction SilentlyContinue) { throw 'Build succeeded. Close PCBS before installation, then rerun with -Install.' }
     New-Item -ItemType Directory -Path $pluginPath -Force | Out-Null
-    $oldPlugin = Join-Path $pluginPath 'PCBSCalculator.dll'
+    $oldPlugin = Join-Path $pluginPath 'PCBS-Helper.dll'
     $backupDir = Join-Path $buildPath ('backups\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
     if (Test-Path -LiteralPath $oldPlugin) {
         New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
         Copy-Item -LiteralPath $oldPlugin -Destination $backupDir
     }
     Get-ChildItem -LiteralPath $packagePath -File | Copy-Item -Destination $pluginPath -Force
+    # Retire the private development filename when updating the local test install.
+    $developmentDll = Join-Path $GamePath 'BepInEx\plugins\PCBSCalculator\PCBSCalculator.dll'
+    if (Test-Path -LiteralPath $developmentDll) {
+        $resolvedDevelopment = (Resolve-Path -LiteralPath $developmentDll).Path
+        if (-not $resolvedDevelopment.StartsWith($GamePath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Development helper path is outside the selected game installation.'
+        }
+        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+        Move-Item -LiteralPath $resolvedDevelopment -Destination (Join-Path $backupDir 'PCBSCalculator.dll')
+    }
     # The four retained tweaks are now native to this DLL; disable the old F1 plugin.
     $legacyCheatDll = Join-Path $GamePath 'BepInEx\plugins\Cheat Menu\CheatMod.dll'
     if (Test-Path -LiteralPath $legacyCheatDll) {

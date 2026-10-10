@@ -1,4 +1,4 @@
-﻿PCBS-Helper 1.2.3
+﻿PCBS-Helper 1.0.0
 Помощник для PC Building Simulator 1 на Windows
 
 Проверено на версии игры 1.15.3. Для PC Building Simulator 2 не подходит.
@@ -7,7 +7,7 @@
 
 ФАЙЛЫ РЕЛИЗА
 
-  PCBS-Helper-1.2.3-Full.zip   — BepInEx и хелпер в одном архиве.
+  PCBS-Helper-1.0.0-Full.zip   — BepInEx и хелпер в одном архиве.
   BepInEx_win_x64_5.4.23.5.zip — загрузчик модов для Windows x64.
   PCBS-Helper.dll             — сам хелпер.
   README.txt                 — эта инструкция.
@@ -22,7 +22,7 @@
    PC Building Simulator → Управление → Просмотреть локальные файлы.
    В открытой папке должны быть PCBS.exe и папка PCBS_Data.
 
-2. Распакуйте СОДЕРЖИМОЕ PCBS-Helper-1.2.3-Full.zip прямо в эту папку.
+2. Распакуйте СОДЕРЖИМОЕ PCBS-Helper-1.0.0-Full.zip прямо в эту папку.
    Рядом с PCBS.exe должны появиться winhttp.dll, doorstop_config.ini
    и папка BepInEx. Не создавайте дополнительную папку для архива.
    Хелпер уже лежит внутри BepInEx\plugins\PCBS-Helper.

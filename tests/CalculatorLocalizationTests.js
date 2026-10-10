@@ -17,14 +17,6 @@ Object.entries(locale.ru).forEach(([english, russian]) => {
     check(locale.text(english, 'ru') === russian, 'Russian translation: ' + english);
     check(locale.text(russian, 'en') === english, 'English round trip: ' + english);
 });
-const html = fs.readFileSync(path.join(__dirname, '../assets/calculator.html'), 'utf8');
-const ui = html.slice(0, html.indexOf('<script id="Source Data">')).replace(/<(style|script)\b[\s\S]*?<\/\1>/g, '');
-const unchanged = new Set(['CPU', 'GPU', 'GPU 1', 'GPU 2', 'M.2', '#',
-    'PC Building Simulator - HTML Calculator v1.15.3 Build 1 - 3DMark Scores, Builds, Upgrades']);
-const labels = new Set(Array.from(ui.matchAll(/>([^<>]+)</g), match => match[1].trim()).filter(Boolean));
-labels.forEach(label => check(unchanged.has(label) || Object.hasOwn(locale.ru, label), 'Every upstream UI label is translated or intentionally canonical: ' + label));
-const tooltips = new Set(Array.from(ui.matchAll(/(?:title|placeholder)="([^"]+)"/g), match => match[1]));
-tooltips.forEach(label => check(/^\d+$/.test(label) || Object.hasOwn(locale.ru, label), 'Every tooltip and text placeholder is covered: ' + label));
-const messages = new Set(Array.from(html.matchAll(/(?:alertMessage =|alert\()\s*"((?:\\.|[^"\\\r\n])*)"/g), match => JSON.parse('"' + match[1] + '"')).filter(Boolean));
-messages.forEach(label => check(label === 'CPU only supports ' || Object.hasOwn(locale.ru, label), 'Every upstream validation alert is covered: ' + label));
+['CPU Clock (MHz)','GPU Clock (MHz)','GPU Memory Clock (MHz)','Load','Delete','Part',
+    'CPU Request','GPU 1 Request','GPU 2 Request','Motherboard Request'].forEach(label=>check(Object.hasOwn(locale.ru,label),'New calculator labels are translated: '+label));
 console.log('Calculator localization: ' + checks + ' assertions passed.');

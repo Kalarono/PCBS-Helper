@@ -2,6 +2,15 @@
     'use strict';
     // Display text only. Part names, form values and saved calculation data remain canonical.
     var ru = {
+        'CPU Clock (MHz)': 'Частота CPU (МГц)', 'GPU Clock (MHz)': 'Частота GPU (МГц)',
+        'GPU Memory Clock (MHz)': 'Частота памяти GPU (МГц)',
+        'Load': 'Загрузить', 'Delete': 'Удалить', 'Part': 'Деталь',
+        'CPU Request': 'Действие с CPU', 'GPU 1 Request': 'Действие с GPU 1',
+        'GPU 2 Request': 'Действие с GPU 2', 'Motherboard Request': 'Действие с платой',
+        'Invalid GPU clocks.': 'Некорректные частоты GPU.',
+        'Preparing component compatibility. Please wait.': 'Подготавливается совместимость деталей. Подождите немного.',
+        'Clocks were imported from the current BIOS. Scores assume stable hardware without thermal throttling; verify overclock stability in the game.': 'Частоты перенесены из текущего BIOS. Расчёт предполагает стабильную работу без перегрева; стабильность разгона проверьте в игре.',
+        'Scores assume stable clocks without thermal throttling. Empty clock fields use stock frequencies.': 'Расчёт предполагает стабильную работу без перегрева. Пустые поля частот означают заводские значения.',
         '3DMark Score': 'Балл 3DMark', '3DMark Score Calculator': 'Расчёт 3DMark',
         'Build Maker': 'Подбор сборки', 'Build Upgrader': 'Подбор апгрейда',
         'Part Replacer': 'Замена деталей', 'History & Saves': 'История и сохранения',

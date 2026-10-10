@@ -26,7 +26,27 @@
                 return { text: text(cell.text), css: /^[a-zA-Z0-9 _-]*$/.test(css) ? css : '', save: cell.save === true };
             }) : [];
         }) : [];
-        return { fields: fields(value.fields), texts: texts, rows: rows };
+        var columns = Array.isArray(value.columns) ? value.columns.slice(0, 20).filter(function (name) {
+            return typeof name === 'string' && /^[a-zA-Z][a-zA-Z0-9]*$/.test(name) && name.length < 40;
+        }) : [];
+        return { fields: fields(value.fields), texts: texts, rows: rows, columns: columns };
+    }
+    function resultRows(page, value, expected) {
+        var saved = tab(value);
+        if (saved.columns.length) {
+            if (expected.some(function (name) { return saved.columns.indexOf(name) < 0; })) return [];
+            return saved.rows.filter(function (row) { return row.length === saved.columns.length; }).map(function (row) {
+                return expected.map(function (name) { return row[saved.columns.indexOf(name)]; });
+            });
+        }
+        // Legacy upgrade rows use GPU count / cooling. The first independent UI
+        // temporarily used RAM MHz / GPU count with the same nine-column width.
+        if (page === 'divBuildUpgrader') return saved.rows.filter(function (row) { return row.length === 9; }).map(function (row) {
+            if (/^\d+$/.test(row[1].text) && Number(row[1].text) >= 100 && !/\btdGpuCount\b/.test(row[1].css))
+                return [row[0], row[2], { text: '', css: 'tdGpuType', save: false }].concat(row.slice(3));
+            return row;
+        });
+        return saved.rows.filter(function (row) { return row.length === expected.length; });
     }
     function history(value) {
         if (!Array.isArray(value)) return [];
@@ -56,7 +76,7 @@
         if (pages.indexOf(page) >= 0) out.tabs[page] = tab(null);
         return out;
     }
-    var api = { pages: pages, historyPage: historyPage, normalize: normalize, clearTab: clearTab };
+    var api = { pages: pages, historyPage: historyPage, normalize: normalize, clearTab: clearTab, resultRows: resultRows };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.PCBSCalculatorStateCodec = api;
 })(typeof window !== 'undefined' ? window : this);

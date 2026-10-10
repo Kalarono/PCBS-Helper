@@ -6,6 +6,11 @@
         divBuildUpgrader: 'formBuildUpgrader', divPartReplacer: 'formPartReplacer'
     };
     var tables = { divBuildMaker: 'tableBuildMakerResults', divBuildUpgrader: 'tableBuildUpgraderResults', divPartReplacer: 'tablePartReplacerResults' };
+    var columns = {
+        divBuildMaker: ['case','cpu','ramChannels','ramSpeed','ram','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts','action'],
+        divBuildUpgrader: ['cpu','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts'],
+        divPartReplacer: ['cpu','gpu','gpu2','mobo','price','remaining','score']
+    };
     var scoreIds = ['td3DMarkCpuScore', 'td3DMarkGpuScore', 'td3DMarkSystemScore', 'td3DMarkGpuType', 'td3DMarkSystemWatts',
         'td3DMarkCpuPriceNew', 'td3DMarkCpuPriceUsed', 'td3DMarkGpusPriceNew', 'td3DMarkGpusPriceUsed'];
     var active = codec.pages[0], restoring = true, lastSaved = '', timer = null, reportedPage = null;
@@ -47,7 +52,7 @@
         if (typeof updateHistory === 'function') updateHistory();
     }
     function captureTab(page) {
-        var out = { fields: captureFields(document.getElementById(forms[page])), texts: {}, rows: [] };
+        var out = { fields: captureFields(document.getElementById(forms[page])), texts: {}, rows: [], columns: columns[page] || [] };
         if (page === 'divBuildMaker') Object.assign(out.fields, captureFields(document.getElementById('formBuildMakerSave')));
         if (page === 'div3DMarkScoreCalculator') scoreIds.forEach(function (id) { out.texts[id] = document.getElementById(id).textContent; });
         var table = document.getElementById(tables[page]);
@@ -73,7 +78,12 @@
         var table = document.getElementById(tables[page]);
         if (!table) return;
         resetResultsTable(table, 0, 0);
-        tab.rows.forEach(function (cells, i) {
+        codec.resultRows(page, tab, columns[page]).forEach(function (cells, i) {
+            if (page === 'divBuildUpgrader' && !cells[2].text) {
+                var gpuName = cells[3].text || document.getElementById(forms[page]).inputBuildUpgraderOriginalSystemGpu.value;
+                var gpu = sourceData.gpus[gpuName];
+                cells[2] = { text: gpu ? gpu.gpuType : '', css: 'tdGpuType', save: false };
+            }
             var row = table.insertRow(-1);
             cells.forEach(function (saved) {
                 var cell = row.insertCell(-1); cell.textContent = saved.text; cell.className = saved.css;
@@ -182,8 +192,7 @@
         var originalLevelSet = window.isLevelSet;
         window.isLevelSet = function () { return career && career.valid && !career.applicable ? true : originalLevelSet(); };
         window.filterPartsForLevel = syncFilters;
-        // The upstream score calculator intentionally uses the unrestricted data3DMark,
-        // but its compatibility helper reads the global career-filtered data variable.
+        // Scoring remains available for installed hardware above the career level.
         var originalCalculate = window.CalculatorCalculate;
         window.CalculatorCalculate = function () {
             var careerData = data;

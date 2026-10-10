@@ -48,6 +48,10 @@
             var parts = [ ['cpus', 'cpu', 1], ['gpus', 'gpu', gpuCount], ['mobos', 'mobo', 1],
                 ['pcCases', 'pcCase', 1], ['rams', 'ram', count(candidate.ramChannel)] ];
             parts.forEach(function (spec) {
+                if (isUpgrade && rule.newOnly && (spec[1] === 'pcCase' || spec[1] === 'ram' ||
+                    spec[1] === 'cpu' && candidate.changedCpu === false ||
+                    spec[1] === 'gpu' && candidate.changedGpu === false ||
+                    spec[1] === 'mobo' && candidate.changedMobo === false)) return;
                 var name = candidate[spec[1]] || (!rule.newOnly && isUpgrade ? system[spec[1]] : '');
                 var part = db[spec[0]] && db[spec[0]][name];
                 var quantity = spec[2];

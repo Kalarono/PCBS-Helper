@@ -129,6 +129,12 @@ PC Building Simulator/BepInEx/plugins/PCBS-Helper/PCBS-Helper.dll
 
 #### 5. Оценка 3DMark без запуска ПК
 
+Калькулятор использует данные из установленной PCBS. Поля частот CPU, GPU и
+памяти GPU можно оставить пустыми для заводских значений или заполнить по BIOS.
+Расчёт предполагает стабильную работу без перегрева. При первом открытии
+совместимость деталей подготавливается в фоне; расчёт 3DMark доступен сразу.
+GIF ниже записан с прежним оформлением калькулятора.
+
 1. Откройте вкладку **«Балл 3DMark»**.
 2. Выберите процессор **CPU**, видеокарту **GPU** и количество видеокарт.
 3. Укажите частоту и каналы ОЗУ, затем нажмите **«Рассчитать»**.
@@ -256,5 +262,7 @@ PC Building Simulator/BepInEx/plugins/PCBS-Helper/PCBS-Helper.dll
 - [Решение проблем и настройка клавиш](https://github.com/Kalarono/PCBS-Helper/blob/main/docs/TROUBLESHOOTING.md).
 - [История версий](CHANGELOG.md) · [Сборка из исходников](DEVELOPMENT.md).
 
-Расчётная основа: **Jacob W. Klein** — [исходная страница](https://jacobwklein.github.io/PC-Building-Simulator/HTML-Calculator/Current-Version/PC-Building-Simulator-HTML-Calculator.html).
-BepInEx: [официальный проект](https://github.com/BepInEx/BepInEx).
+Калькулятор написан для PCBS-Helper. Данные деталей и коэффициенты 3DMark читаются из установленной игры; сторонний HTML-калькулятор в DLL не включён.
+Автор PCBS-Helper и его калькулятора: **Kalarono**.
+BepInEx: [официальный проект](https://github.com/BepInEx/BepInEx), лицензия MIT.
+Полный архив содержит `BepInEx-LICENSE.txt`. Иллюстрация обложки создана с помощью ИИ.

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using System.IO;
 using System.Reflection;
 using BepInEx;
@@ -40,6 +41,7 @@ namespace PCBSCalculatorHelper
         private bool expanded;
         private PanelPlacement calculatorPlacement;
         private ConfigEntry<bool> calculatorEnabled, requirementsEnabled;
+        private ConfigEntry<bool> exportCalculatorCatalog;
         private CalculatorSession calculatorSession;
         private float nextCareerSync;
         private string lastCareerJson;
@@ -76,6 +78,8 @@ namespace PCBSCalculatorHelper
                 "Show game requirements automatically while assembling a job PC. Emails use the Will it Run? button; F3 pins the panel.").Value;
             calculatorEnabled = Config.Bind("Helpers", "CalculatorEnabled", true,
                 "Enable the calculator and its hotkey. Also controlled in Tweaker.");
+            exportCalculatorCatalog = Config.Bind("Diagnostics", "ExportCalculatorCatalog", false,
+                "Save the game-derived calculator catalog for offline diagnostics when F2 opens.");
             requirementsEnabled = Config.Bind("Helpers", "WillItRunEnabled", true,
                 "Enable requirements, automatic display and F3. Also controlled in Tweaker.");
             calculatorPlacement = new PanelPlacement(Config, "Calculator");
@@ -91,7 +95,7 @@ namespace PCBSCalculatorHelper
                 calculatorEnabled, requirementsEnabled,
                 delegate(bool value) { if (!value) SetVisible(false); UpdatePanelCursor(); },
                 delegate(bool value) { requirements.SetEnabled(value); UpdatePanelCursor(); });
-            htmlPath = Path.Combine(Path.GetDirectoryName(Info.Location), "calculator.html");
+            htmlPath = Path.Combine(Path.GetDirectoryName(Info.Location), "helper-calculator.html");
             calculatorSession = new CalculatorSession(Paths.ConfigPath, Logger);
             jobHelper = new JobHelperButton(delegate { return calculatorEnabled.Value; }, OpenJobCalculator,
                 delegate { return requirementsEnabled.Value; }, OpenJobRequirements, Logger);
@@ -361,6 +365,7 @@ namespace PCBSCalculatorHelper
                 if (career != lastCareerJson)
                 {
                     browser.CallFunction("pcbsUpdateCareer", new JSONNode[] { JSONNode.Parse(career) });
+                    browser.CallFunction("pcbsSetCatalogAvailability", new JSONNode[] { GameCalculatorCatalog.Availability() });
                     lastCareerJson = career;
                 }
                 string language = HelperLocalization.Code;
@@ -418,16 +423,25 @@ namespace PCBSCalculatorHelper
             {
                 string assetDir = Path.GetDirectoryName(htmlPath);
                 Assembly assembly = typeof(CalculatorPlugin).Assembly;
-                string html = EmbeddedAssets.Read("calculator.html", assembly, assetDir);
-                html = html.Replace("</body>", "<script>" + EmbeddedAssets.Read("embedded-ui.js", assembly, assetDir) + "</script></body>");
-                html = html.Replace("</head>", "<style>" + EmbeddedAssets.Read("calculator-theme.css", assembly, assetDir) + "</style></head>");
+                string html = EmbeddedAssets.Read("helper-calculator.html", assembly, assetDir);
+                JSONNode catalogNode = GameCalculatorCatalog.Read();
+                string catalog = catalogNode.AsJSON;
+                if (exportCalculatorCatalog.Value)
+                {
+                    string diagnosticDir = Path.Combine(Paths.ConfigPath, "PCBSHelper");
+                    Directory.CreateDirectory(diagnosticDir);
+                    File.WriteAllText(Path.Combine(diagnosticDir, "game-calculator-catalog.json"), catalog);
+                }
                 string bootstrap = "window.pcbsInitialState = JSON.parse(" + CalculatorSession.ScriptString(calculatorSession.Load()) +
                     "); window.pcbsInitialCareer = " + CalculatorSession.CareerJson() +
-                    "; window.pcbsInitialLanguage = " + CalculatorSession.ScriptString(HelperLocalization.Code) + ";";
+                    "; window.pcbsInitialLanguage = " + CalculatorSession.ScriptString(HelperLocalization.Code) +
+                    "; window.pcbsGameCatalog = JSON.parse(" + CalculatorSession.ScriptString(catalog) + ");";
                 html = html.Replace("</body>", "<script>" + bootstrap + "</script><script>" +
                     EmbeddedAssets.Read("calculator-state-codec.js", assembly, assetDir) + "</script><script>" +
                     EmbeddedAssets.Read("calculator-job-rules.js", assembly, assetDir) + "</script><script>" +
-                    EmbeddedAssets.Read("calculator-job-import.js", assembly, assetDir) + "</script><script>" +
+                    EmbeddedAssets.Read("helper-calculator-engine.js", assembly, assetDir) + "</script><script>" +
+                    EmbeddedAssets.Read("helper-calculator-app.js", assembly, assetDir) + "</script><script>" +
+                    EmbeddedAssets.Read("embedded-ui.js", assembly, assetDir) + "</script><script>" +
                     EmbeddedAssets.Read("calculator-state.js", assembly, assetDir) + "</script><script>" +
                     EmbeddedAssets.Read("calculator-localization.js", assembly, assetDir) + "</script></body>");
                 html = html.Replace("</body>", "<script>" + EmbeddedAssets.Read("calculator-build-order.js", assembly, assetDir) + "</script></body>");
@@ -452,6 +466,7 @@ namespace PCBSCalculatorHelper
                     browser.RegisterFunction("pcbsOrderBuild", OrderCalculatorBuild);
                     nextCareerSync = 0; lastCareerJson = null; lastLanguage = null;
                     ApplyPendingJob();
+                    if (!(bool)catalogNode["geometryReady"]) StartCoroutine(PrepareCalculatorGeometry(catalogNode));
                     Logger.LogInfo("Offline calculator page loaded.");
                 };
                 browser.onConsoleMessage += delegate(string message, string source)
@@ -470,6 +485,19 @@ namespace PCBSCalculatorHelper
                 browser = null;
                 browserObject = null;
             }
+        }
+
+        private IEnumerator PrepareCalculatorGeometry(JSONNode catalog)
+        {
+            // Read one prefab per frame so F2 scoring and the workshop stay responsive.
+            IEnumerator loader = GameCalculatorCatalog.LoadGeometry(catalog);
+            while (loader.MoveNext()) yield return loader.Current;
+            if (browser == null) yield break;
+            browser.CallFunction("pcbsSetCatalogGeometry", new JSONNode[] { catalog });
+            browser.CallFunction("pcbsSetCatalogAvailability", new JSONNode[] { GameCalculatorCatalog.Availability() });
+            if (exportCalculatorCatalog.Value)
+                File.WriteAllText(Path.Combine(Path.Combine(Paths.ConfigPath, "PCBSHelper"), "game-calculator-catalog.json"), catalog.AsJSON);
+            Logger.LogInfo("Calculator compatibility data ready; game geometry cache saved.");
         }
 
         private void UpdateLayout()

@@ -159,5 +159,8 @@ The demonstrations use the Russian interface; the English guide uses
 the corresponding English button and field names.
 
 Project: https://github.com/Kalarono/PCBS-Helper
-Calculations based on the work of Jacob W. Klein.
+PCBS-Helper's own calculator reads component data and 3DMark coefficients from the installed game.
+Empty CPU/GPU clock fields use stock frequencies; you can enter BIOS clock values.
+Scores assume stable hardware without thermal throttling. Compatibility loads in the
+background on first use, while 3DMark scoring is available immediately.
 BepInEx: https://github.com/BepInEx/BepInEx

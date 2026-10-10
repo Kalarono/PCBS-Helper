@@ -11,10 +11,10 @@ from bs4 import BeautifulSoup
 parser = argparse.ArgumentParser()
 parser.add_argument("--game-path", type=Path, required=True)
 parser.add_argument("--output", type=Path, required=True)
+parser.add_argument("--calculator-catalog", type=Path, default=Path(__file__).resolve().parents[1] / "build/game-catalog/helper-catalog.json")
 args = parser.parse_args()
 project = Path(__file__).resolve().parents[1]
-html = (project / "assets/calculator.html").read_text(encoding="utf-8", errors="replace")
-source, _ = json.JSONDecoder().raw_decode(html.split("var sourceData =", 1)[1].lstrip())
+source = json.loads(args.calculator_catalog.read_text(encoding="utf-8-sig"))
 env = UnityPy.load(str(args.game_path / "PCBS_Data/sharedassets1.assets"))
 catalog = []
 table_kinds = {"CPU": "cpu", "GPU": "gpu", "Water Cooled GPU": "gpu", "Cases": "case", "RAM": "ram", "Motherboard": "motherboard"}

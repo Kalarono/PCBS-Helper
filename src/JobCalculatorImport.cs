@@ -71,7 +71,7 @@ namespace PCBSCalculatorHelper
                 system["ramSticks"] = sticks;
                 system["ramSpeed"] = pc.m_biosConfig == null ? baseRamSpeed : pc.GetMemoryClock();
                 if (pc.m_biosConfig != null)
-                { system["cpuMhz"] = pc.m_biosConfig.GetCPUSpeed(); system["gpuMhz"] = pc.m_biosConfig.m_gpuClock; }
+                { system["cpuMhz"] = pc.m_biosConfig.GetCPUSpeed(); system["gpuMhz"] = pc.m_biosConfig.m_gpuClock; system["gpuMemoryMhz"] = pc.m_biosConfig.m_gpuMemClock; }
                 system["ramGb"] = pc.GetRAM();
                 JSONNode otherParts = Arr();
                 foreach (PartInstance instance in pc.GetAllParts())
@@ -88,7 +88,7 @@ namespace PCBSCalculatorHelper
                 if (m2s.Count > 1)
                     Add(notes, ru ? "В ПК несколько M.2: калькулятор учитывает первый, совместимость остальных проверьте отдельно." : "Several M.2 drives are installed; the calculator checks the first. Review compatibility of the others.");
                 if (baseRamSpeed > 0 && pc.m_biosConfig != null && pc.GetMemoryClock() != baseRamSpeed)
-                    Add(notes, ru ? "RAM Speed перенесён из текущего BIOS. Калькулятор использует собственную модель XMP; расчёт после разгона может отличаться от игры." : "RAM Speed uses the current BIOS. The calculator has its own XMP model; overclocked estimates can differ from the game.");
+                    Add(notes, ru ? "Частоты перенесены из текущего BIOS. Расчёт предполагает стабильную работу без перегрева; стабильность разгона проверьте в игре." : "Clocks were imported from the current BIOS. Scores assume stable hardware without thermal throttling; verify overclock stability in the game.");
             }
             foreach (Objective objective in job.GetObjectives())
             {
@@ -119,7 +119,6 @@ namespace PCBSCalculatorHelper
                     requirement["count"] = Math.Max(1, IntField(objective, objective is UseBrandObjective ? "m_numberOfParts" : "m_numParts"));
                     requirement["newOnly"] = objective is UseBrandObjective;
                     brands.Add(requirement);
-                    // Intel makes only CPUs in the game. AMD can satisfy a general brand goal via CPU OR GPU.
                     if (String.Equals(brand, "Intel", StringComparison.OrdinalIgnoreCase)) fields["cpuBrand"] = "Intel";
                 }
                 if (objective is FuturLab.EsportsPartMustBeBrandObjective)

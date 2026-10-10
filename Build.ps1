@@ -1,8 +1,7 @@
 param(
     [string]$GamePath,
     [switch]$Install,
-    [switch]$Test,
-    [switch]$FetchCalculator
+    [switch]$Test
 )
 $ErrorActionPreference = 'Stop'
 $projectPath = $PSScriptRoot
@@ -20,7 +19,6 @@ $packagePath = Join-Path $buildPath 'package\PCBS-Helper'
 New-Item -ItemType Directory -Path $packagePath -Force | Out-Null
 $compilerPath = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compilerPath)) { throw 'Windows .NET Framework C# compiler not found.' }
-if ($FetchCalculator) { & (Join-Path $projectPath 'scripts\Fetch-Calculator.ps1') }
 $referenceFiles = @('mscorlib.dll','System.dll','System.Core.dll','UnityEngine.dll',
     'UnityEngine.CoreModule.dll','UnityEngine.IMGUIModule.dll','UnityEngine.InputModule.dll',
     'UnityEngine.TextRenderingModule.dll','UnityEngine.UIModule.dll','UnityEngine.UI.dll','Assembly-CSharp-firstpass.dll',
@@ -32,10 +30,10 @@ foreach ($referenceFile in $referenceFiles) {
 $compilerArguments = @('/noconfig','/nologo','/target:library','/nostdlib+','/optimize+','/platform:anycpu')
 $compilerArguments += '/out:' + (Join-Path $packagePath 'PCBS-Helper.dll')
 $compilerArguments += $referenceFiles | ForEach-Object { '/reference:' + $_ }
-$assetNames = @('calculator.html','embedded-ui.js','calculator-theme.css','calculator-state-codec.js','calculator-state.js','calculator-job-rules.js','calculator-job-import.js','calculator-localization.js','calculator-build-order.js')
+$assetNames = @('helper-calculator.html','helper-calculator-engine.js','helper-calculator-app.js','embedded-ui.js','calculator-state-codec.js','calculator-state.js','calculator-job-rules.js','calculator-localization.js','calculator-build-order.js')
 foreach ($assetName in $assetNames) {
     $assetFile = Join-Path $projectPath ('assets\' + $assetName)
-    if (-not (Test-Path -LiteralPath $assetFile)) { throw "Calculator asset missing: $assetName. Use -FetchCalculator if calculator.html is missing." }
+    if (-not (Test-Path -LiteralPath $assetFile)) { throw "Calculator asset missing: $assetName." }
     $compilerArguments += '/resource:' + $assetFile + ',PCBSHelper.Assets.' + $assetName
 }
 $compilerArguments += (Get-ChildItem -LiteralPath (Join-Path $projectPath 'src') -Filter *.cs).FullName
@@ -105,6 +103,9 @@ if ($Test) {
         if ($LASTEXITCODE -ne 0) { throw 'Calculator job rule tests failed.' }
         & $nodeCommand.Source (Join-Path $projectPath 'tests\CalculatorLocalizationTests.js')
         if ($LASTEXITCODE -ne 0) { throw 'Calculator localization tests failed.' }
+        if (Test-Path -LiteralPath (Join-Path $projectPath 'build\game-catalog\helper-catalog.json')) {
+            & (Join-Path $projectPath 'scripts\Test-Calculator.ps1') -GamePath $GamePath
+        }
     } else { Write-Warning 'Node.js not found: calculator JavaScript tests were skipped.' }
 }
 if ($Install) {

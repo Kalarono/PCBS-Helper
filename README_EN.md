@@ -134,6 +134,12 @@ helper by clicking **Helper** in an email with a 3DMark target.
 
 #### 5. Estimate 3DMark without turning on the PC
 
+The calculator reads data from the installed PCBS. Leave the CPU, GPU and GPU
+memory clock fields empty for stock frequencies, or enter the BIOS values.
+Scores assume stable hardware without thermal throttling. Component compatibility
+loads in the background on first use; 3DMark scoring is available immediately.
+The GIF below shows the previous calculator design.
+
 1. Open the **3DMark Score** tab.
 2. Select the **CPU**, **GPU** and number of graphics cards.
 3. Set **RAM Speed** and **RAM Channels**, then click **Calculate**.
@@ -268,6 +274,7 @@ The following additional documents are currently in Russian:
 - [Troubleshooting and key bindings](docs/TROUBLESHOOTING.md).
 - [Changelog](CHANGELOG.md) · [Building from source](DEVELOPMENT.md).
 
-Calculations are based on the work of **Jacob W. Klein** —
-[original calculator](https://jacobwklein.github.io/PC-Building-Simulator/HTML-Calculator/Current-Version/PC-Building-Simulator-HTML-Calculator.html).
-BepInEx: [official project](https://github.com/BepInEx/BepInEx).
+The calculator is implemented by PCBS-Helper. Component data and 3DMark coefficients are read from the installed game. No third-party HTML calculator is embedded in the DLL.
+PCBS-Helper and its calculator by **Kalarono**.
+BepInEx: [official project](https://github.com/BepInEx/BepInEx), MIT license.
+The full archive includes `BepInEx-LICENSE.txt`.

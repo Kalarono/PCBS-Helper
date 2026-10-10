@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PCBS-Helper Calculator</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #121720;
+        color: #edf2fa;
+        font:
+          14px/1.45 Arial,
+          sans-serif;
+      }
+      body {
+        padding: 10px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      nav {
+        position: sticky;
+        top: 0;
+        background: #121720;
+        z-index: 30;
+        padding: 6px 0;
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      button {
+        cursor: pointer;
+        background: #24466b;
+        color: #edf2fa;
+        border: 1px solid #45628a;
+        border-radius: 5px;
+        padding: 7px 10px;
+        font: inherit;
+      }
+      button:hover {
+        background: #315f90;
+      }
+      button:focus,
+      input:focus,
+      select:focus {
+        outline: 2px solid #77a9ff;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 10px;
+      }
+      .panel {
+        background: #1a2230;
+        border: 1px solid #334052;
+        border-radius: 7px;
+        margin: 10px 0;
+        padding: 12px;
+      }
+      .settings {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+        background: #111923;
+        border: 1px solid #435269;
+        border-radius: 4px;
+        padding: 5px;
+        width: 100%;
+        min-height: 32px;
+      }
+      input[type="checkbox"] {
+        width: 18px;
+        min-height: 18px;
+      }
+      .settings input[type="number"] {
+        width: 55px;
+      }
+      .settings label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      form > table {
+        width: 100%;
+        max-width: 850px;
+        border-collapse: collapse;
+      }
+      form > table td {
+        padding: 4px 5px;
+      }
+      form > table td:first-child {
+        width: 34%;
+        color: #bac6d7;
+      }
+      .results {
+        overflow: auto;
+      }
+      table[id$="Results"],
+      table[id$="History"],
+      table[id$="Saves"] {
+        border-collapse: collapse;
+        font-size: 12px;
+        width: 100%;
+      }
+      th,
+      td {
+        padding: 6px;
+        text-align: left;
+      }
+      th {
+        color: #a4cbff;
+      }
+      table[id$="Results"] td,
+      table[id$="History"] td,
+      table[id$="Saves"] td {
+        border-bottom: 1px solid #334052;
+      }
+      .pcbs-job-review {
+        padding: 12px;
+        background: #172336;
+        border: 1px solid #3a485e;
+        border-radius: 7px;
+        margin: 10px 0;
+      }
+      .pcbs-job-review summary {
+        cursor: pointer;
+      }
+      .pcbs-order-status {
+        color: #a4cbff;
+        margin: 8px 0;
+      }
+      .score-total {
+        font-size: 23px;
+        color: #a4cbff;
+      }
+      .hint {
+        color: #aab7ca;
+        font-size: 12px;
+      }
+      .pcbs-options,
+      .pcbs-option {
+        background: #1c2839 !important;
+        color: #edf2fa !important;
+      }
+      .pcbs-option:hover {
+        background: #315f90 !important;
+      }
+      td[data-pcbs-display] {
+        font-size: 0;
+      }
+      td[data-pcbs-display]::after {
+        content: attr(data-pcbs-display);
+        font-size: 12px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <nav id="divNavigationBar"></nav>
+    <div class="panel settings" id="divOptions">
+      <form id="formOptions"></form>
+    </div>
+    <div class="panel settings" id="divLevel"><form id="formLevel"></form></div>
+    <div id="divPages"></div>
+  </body>
+</html>

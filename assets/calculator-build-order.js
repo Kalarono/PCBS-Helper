@@ -104,6 +104,7 @@
         root.addSaveButton = function (target, id) {
             var button = document.createElement('button'); button.id = id; button.className = 'buttonSave';
             convert(button); target.appendChild(button);
+            if (typeof root.pcbsAddBuildSaveButton === 'function') root.pcbsAddBuildSaveButton(target);
         };
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);

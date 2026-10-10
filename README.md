@@ -1,5 +1,7 @@
 # PCBS-Helper
 
+**Русский** | [English](README_EN.md)
+
 **Помощник для PC Building Simulator 1 на Windows. Версия 1.0.0.**
 Проверено на версии игры **1.15.3**. Для PC Building Simulator 2 не подходит.
 
@@ -39,7 +41,8 @@ PC Building Simulator/BepInEx/plugins/PCBS-Helper/PCBS-Helper.dll
 Нужен **BepInEx 5 для Windows x64**.
 
 Для установки по частям к релизу также приложены
-**BepInEx_win_x64_5.4.23.5.zip** и **README.txt** с инструкцией.
+**BepInEx_win_x64_5.4.23.5.zip**, **README.txt** с инструкцией на русском
+и **README_EN.txt** с инструкцией на английском.
 Архивы **Source code** для установки не нужны.
 
 ## Управление

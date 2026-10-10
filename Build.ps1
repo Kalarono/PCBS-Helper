@@ -46,8 +46,9 @@ foreach ($assetName in $assetNames) {
     $obsoleteFile = Join-Path $packagePath $assetName
     if (Test-Path -LiteralPath $obsoleteFile) { Remove-Item -LiteralPath $obsoleteFile }
 }
-Copy-Item -LiteralPath (Join-Path $projectPath 'README.md') -Destination $packagePath -Force
-Copy-Item -LiteralPath (Join-Path $projectPath 'README.txt') -Destination $packagePath -Force
+foreach ($readmeName in @('README.md', 'README_EN.md', 'README.txt', 'README_EN.txt')) {
+    Copy-Item -LiteralPath (Join-Path $projectPath $readmeName) -Destination $packagePath -Force
+}
 Copy-Item -LiteralPath (Join-Path $projectPath 'CHANGELOG.md') -Destination $packagePath -Force
 Copy-Item -LiteralPath (Join-Path $projectPath 'DEVELOPMENT.md') -Destination $packagePath -Force
 if ($Test) {

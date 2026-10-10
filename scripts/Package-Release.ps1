@@ -29,16 +29,21 @@ $versionMatch = [regex]::Match($pluginSource, 'BepInPlugin\("local\.pcbs\.calcul
 if (-not $versionMatch.Success) { throw 'Cannot read the helper version.' }
 $version = $versionMatch.Groups[1].Value
 $fullArchiveName = "PCBS-Helper-$version-Full.zip"
-$readmeSource = Join-Path $projectPath 'README.txt'
-$readmeText = Get-Content -LiteralPath $readmeSource -Raw
-if (-not $readmeText.Contains("PCBS-Helper $version") -or -not $readmeText.Contains($fullArchiveName)) {
-    throw 'Update README.txt to the current helper version before packaging.'
+$readmeNames = @('README.txt', 'README_EN.txt')
+foreach ($readmeName in $readmeNames) {
+    $readmeSource = Join-Path $projectPath $readmeName
+    $readmeText = Get-Content -LiteralPath $readmeSource -Raw
+    if (-not $readmeText.Contains("PCBS-Helper $version") -or -not $readmeText.Contains($fullArchiveName)) {
+        throw "Update $readmeName to the current helper version before packaging."
+    }
 }
 $releasePath = Join-Path $projectPath "build\release\$version"
 New-Item -ItemType Directory -Path $releasePath -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $packagePath 'PCBS-Helper.dll') -Destination $releasePath -Force
 Copy-Item -LiteralPath $BepInExArchivePath -Destination (Join-Path $releasePath $bepInExName) -Force
-Copy-Item -LiteralPath $readmeSource -Destination $releasePath -Force
+foreach ($readmeName in $readmeNames) {
+    Copy-Item -LiteralPath (Join-Path $projectPath $readmeName) -Destination $releasePath -Force
+}
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archivePath = Join-Path $releasePath $fullArchiveName
@@ -61,8 +66,10 @@ try {
             [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($destinationZip,
                 (Join-Path $releasePath 'PCBS-Helper.dll'),
                 'BepInEx/plugins/PCBS-Helper/PCBS-Helper.dll') | Out-Null
-            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($destinationZip,
-                $readmeSource, 'README.txt') | Out-Null
+            foreach ($readmeName in $readmeNames) {
+                [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($destinationZip,
+                    (Join-Path $projectPath $readmeName), $readmeName) | Out-Null
+            }
             [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($destinationZip,
                 (Join-Path $projectPath 'docs\licenses\BepInEx.txt'), 'BepInEx-LICENSE.txt') | Out-Null
         } finally { $destinationZip.Dispose() }

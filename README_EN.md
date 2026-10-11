@@ -2,7 +2,7 @@
 
 [Русский](README.md) | **English**
 
-**An in-game helper for PC Building Simulator 1 on Windows. Version 1.0.0.**
+**An in-game helper for PC Building Simulator 1 on Windows. Version 1.0.1.**
 Tested with game version **1.15.3**. Not compatible with PC Building Simulator 2.
 
 Convenience settings, a **Build Helper** and a **Will it Run? Helper**, all
@@ -21,7 +21,7 @@ Choose one of the two installation methods on the
 
 ### Full archive — the easiest option
 
-1. **Close the game** and download **PCBS-Helper-1.0.0-Full.zip**.
+1. **Close the game** and download **PCBS-Helper-1.0.1-Full.zip**.
    The archive includes BepInEx 5 x64 and the helper.
 2. In your Steam library, right-click PC Building Simulator →
    **Manage → Browse local files**.
@@ -72,6 +72,22 @@ Closing the F1 window keeps your selected settings.
 <a id="f1"></a>
 
 ### F1 — convenience settings
+
+New workbench options: **Automatic thermal paste**, **Remove dependencies
+while holding LMB**, and **Replace all customizable cables**. Enable each
+option in F1. Hold LMB on a blocked part in removal mode to disconnect cables
+and remove blocking parts in sequence, with normal animations and screw speed.
+Release to pause; Esc cancels the queue. In cable mode (3), select the active
+cable to replace existing connections whose appearance the game allows you to change.
+
+Thermal paste is applied when installing a CPU and reapplied during cooler
+installation if missing, including AIO coolers mounted in a case slot.
+
+The inventory title bar now has **price and arrival-order sort buttons**.
+Click the active button again to reverse direction; the selection is saved.
+New arrivals appear first by default. Price matches the resale value on the
+item card. Arrival order uses the game's saved insertion order, since the
+game does not store calendar timestamps for inventory items.
 
 #### 1. Install all apps and instant 3DMark
 
@@ -222,13 +238,16 @@ or 4K), RAM, VRAM, GPU, CPU and storage space.
 
 1. In an email asking for a PC that can play a particular game,
    click **Will it Run?**.
-2. Review the job's requirements. Below the CPU, the helper shows a
-   suitable available processor from the other brand and its socket.
+2. Review the job's requirements. **Job clarifications** appears below when
+   the order adds CPU/GPU brand, memory, drive or other constraints. When
+   a different CPU/GPU is needed, it shows a suitable available replacement.
 3. Open the shop and compare parts against the panel. Opening it from
    the email button already pins it.
 4. Press **F3** to hide the pinned panel.
 
 Check that your chosen CPU and motherboard have compatible sockets.
+The clarification block is hidden when there are no additional conditions.
+Manually choosing a game does not carry over the previous order's conditions.
 The **Will it Run?** button opens the requirements without accepting the job.
 
 ![Opening Will it Run? from an email and choosing a CPU in the shop](docs/images/guide/08_will_it_run_email.gif)

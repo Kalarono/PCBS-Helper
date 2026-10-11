@@ -20,7 +20,7 @@ New-Item -ItemType Directory -Path $packagePath -Force | Out-Null
 $compilerPath = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compilerPath)) { throw 'Windows .NET Framework C# compiler not found.' }
 $referenceFiles = @('mscorlib.dll','System.dll','System.Core.dll','UnityEngine.dll',
-    'UnityEngine.CoreModule.dll','UnityEngine.IMGUIModule.dll','UnityEngine.InputModule.dll',
+    'UnityEngine.CoreModule.dll','UnityEngine.PhysicsModule.dll','UnityEngine.IMGUIModule.dll','UnityEngine.InputModule.dll',
     'UnityEngine.TextRenderingModule.dll','UnityEngine.UIModule.dll','UnityEngine.UI.dll','Assembly-CSharp-firstpass.dll',
     'ZFBrowser.dll','Rewired_Core.dll') | ForEach-Object { Join-Path $managedPath $_ }
 $referenceFiles += (Join-Path $GamePath 'BepInEx\core\BepInEx.dll'), (Join-Path $GamePath 'BepInEx\core\0Harmony.dll')
@@ -50,11 +50,33 @@ foreach ($readmeName in @('README.md', 'README_EN.md', 'README.txt', 'README_EN.
 Copy-Item -LiteralPath (Join-Path $projectPath 'CHANGELOG.md') -Destination $packagePath -Force
 Copy-Item -LiteralPath (Join-Path $projectPath 'DEVELOPMENT.md') -Destination $packagePath -Force
 if ($Test) {
-    $testExe = Join-Path $buildPath 'CpuMatcherTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$testExe" (Join-Path $projectPath 'src\CpuMatcher.cs') (Join-Path $projectPath 'tests\CpuMatcherTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'CPU matching tests could not compile.' }
-    & $testExe
-    if ($LASTEXITCODE -ne 0) { throw 'CPU matching tests failed.' }
+    $workbenchTests = Join-Path $buildPath 'WorkbenchOrderTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$workbenchTests" (Join-Path $projectPath 'src\DependencyOrder.cs') (Join-Path $projectPath 'src\InventoryOrder.cs') (Join-Path $projectPath 'tests\WorkbenchOrderTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Workbench ordering tests could not compile.' }
+    & $workbenchTests
+    if ($LASTEXITCODE -ne 0) { throw 'Workbench ordering tests failed.' }
+    $workbenchRulesTests = Join-Path $buildPath 'WorkbenchRulesTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$workbenchRulesTests" (Join-Path $projectPath 'src\WorkbenchRules.cs') (Join-Path $projectPath 'tests\WorkbenchRulesTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Workbench behavior tests could not compile.' }
+    & $workbenchRulesTests
+    if ($LASTEXITCODE -ne 0) { throw 'Workbench behavior tests failed.' }
+    $workbenchContractTests = Join-Path $buildPath 'WorkbenchGameContractTests.exe'
+    $cecilPath = Join-Path $GamePath 'BepInEx\core\Mono.Cecil.dll'
+    Copy-Item -LiteralPath $cecilPath -Destination $buildPath -Force
+    & $compilerPath /nologo /target:exe "/out:$workbenchContractTests" "/reference:$cecilPath" (Join-Path $projectPath 'tests\WorkbenchGameContractTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Game workbench API tests could not compile.' }
+    & $workbenchContractTests $managedPath (Join-Path $packagePath 'PCBS-Helper.dll')
+    if ($LASTEXITCODE -ne 0) { throw 'Game workbench API tests failed.' }
+    $requirementsTests = Join-Path $buildPath 'RequirementClarificationsTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$requirementsTests" (Join-Path $projectPath 'src\RequirementClarifications.cs') (Join-Path $projectPath 'tests\RequirementClarificationsTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Job clarification tests could not compile.' }
+    & $requirementsTests
+    if ($LASTEXITCODE -ne 0) { throw 'Job clarification tests failed.' }
+    $jobReaderTests = Join-Path $buildPath 'JobRequirementReaderTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$jobReaderTests" "/reference:$(Join-Path $managedPath 'Assembly-CSharp-firstpass.dll')" "/reference:$(Join-Path $managedPath 'UnityEngine.CoreModule.dll')" (Join-Path $projectPath 'src\RequirementClarifications.cs') (Join-Path $projectPath 'src\JobRequirementReader.cs') (Join-Path $projectPath 'tests\JobRequirementReaderTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Native job objective tests could not compile.' }
+    & $jobReaderTests $managedPath
+    if ($LASTEXITCODE -ne 0) { throw 'Native job objective tests failed.' }
     $positionTestExe = Join-Path $buildPath 'WindowPositionTests.exe'
     & $compilerPath /nologo /target:exe "/out:$positionTestExe" (Join-Path $projectPath 'src\WindowPositionMath.cs') (Join-Path $projectPath 'tests\WindowPositionTests.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Window position tests could not compile.' }

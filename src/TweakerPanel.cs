@@ -18,13 +18,17 @@ namespace PCBSCalculatorHelper
         private readonly PanelPlacement placement;
         private readonly ConfigEntry<bool> calculatorEnabled, requirementsEnabled;
         private readonly Action<bool> calculatorChanged, requirementsChanged;
+        private readonly WorkbenchAutomation workbench;
+        private readonly InventorySorting inventorySorting;
         public bool Visible { get; private set; }
         public bool ClickPurchaseEnabled { get { return clickPurchase.Value; } }
 
         public TweakerPanel(ConfigFile config, ManualLogSource log, KeyCode key, KeyCode calculatorKey, KeyCode requirementsKey, Action objectivesChanged,
             ConfigEntry<bool> calculatorEnabled, ConfigEntry<bool> requirementsEnabled,
-            Action<bool> calculatorChanged, Action<bool> requirementsChanged)
+            Action<bool> calculatorChanged, Action<bool> requirementsChanged,
+            WorkbenchAutomation workbench, InventorySorting inventorySorting)
         {
+            this.workbench = workbench; this.inventorySorting = inventorySorting;
             this.log = log; this.key = key; this.objectivesChanged = objectivesChanged;
             this.calculatorKey = calculatorKey; this.requirementsKey = requirementsKey;
             placement = new PanelPlacement(config, "Tweaker");
@@ -67,7 +71,7 @@ namespace PCBSCalculatorHelper
         {
             float scale = Mathf.Clamp(Screen.height / 1080f, 0.65f, 1.2f);
             return placement.Resolve(new Rect(20 * scale, 118 * scale,
-                Mathf.Min(424 * scale, Screen.width * 0.46f), 500 * scale));
+                Mathf.Min(480 * scale, Screen.width * 0.65f), 700 * scale));
         }
 
         public bool Contains(Vector2 point) { return Visible && GetRect().Contains(point); }
@@ -98,9 +102,13 @@ namespace PCBSCalculatorHelper
                 Apply();
                 if (objectivesChanged != null) objectivesChanged();
             }
-            if (Row(calculatorEnabled, "Build Helper", 340, w, calculatorKey)) calculatorChanged(calculatorEnabled.Value);
-            if (Row(requirementsEnabled, "Will it Run? Helper", 390, w, requirementsKey)) requirementsChanged(requirementsEnabled.Value);
-            if (GUI.Button(new Rect(18, 452, w - 36, 30), HelperLocalization.Text("Close"), theme.Button)) Hide();
+            Row(workbench.ThermalPaste, "Automatic thermal paste", 330, w);
+            Row(workbench.RemoveDependencies, "Remove dependencies while holding LMB", 380, w);
+            Row(workbench.CableColour, "Replace all customizable cables", 430, w);
+            Row(inventorySorting.Enabled, "Inventory sorting", 480, w);
+            if (Row(calculatorEnabled, "Build Helper", 540, w, calculatorKey)) calculatorChanged(calculatorEnabled.Value);
+            if (Row(requirementsEnabled, "Will it Run? Helper", 590, w, requirementsKey)) requirementsChanged(requirementsEnabled.Value);
+            if (GUI.Button(new Rect(18, 652, w - 36, 30), HelperLocalization.Text("Close"), theme.Button)) Hide();
             GUI.matrix = oldMatrix; GUI.depth = oldDepth;
         }
 

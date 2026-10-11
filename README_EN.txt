@@ -1,4 +1,4 @@
-PCBS-Helper 1.0.0
+PCBS-Helper 1.0.1
 An in-game helper for PC Building Simulator 1 on Windows
 
 Tested with game version 1.15.3. Not compatible with PC Building Simulator 2.
@@ -9,7 +9,7 @@ For instructions in Russian, see README.txt.
 
 RELEASE FILES
 
-  PCBS-Helper-1.0.0-Full.zip   - BepInEx and the helper in one archive.
+  PCBS-Helper-1.0.1-Full.zip   - BepInEx and the helper in one archive.
   BepInEx_win_x64_5.4.23.5.zip - The mod loader for Windows x64.
   PCBS-Helper.dll             - The helper plugin.
   README_EN.txt              - These instructions in English.
@@ -26,7 +26,7 @@ QUICK INSTALLATION FROM THE FULL ARCHIVE
    PC Building Simulator -> Manage -> Browse local files.
    This folder should contain PCBS.exe and the PCBS_Data folder.
 
-2. Extract the CONTENTS of PCBS-Helper-1.0.0-Full.zip directly into
+2. Extract the CONTENTS of PCBS-Helper-1.0.1-Full.zip directly into
    this folder. winhttp.dll, doorstop_config.ini and the BepInEx folder
    should be next to PCBS.exe. Do not create an extra folder for the ZIP.
    The helper is already included in BepInEx\plugins\PCBS-Helper.
@@ -84,6 +84,25 @@ by default. Each additional click adds another unit. Unavailable parts
 are skipped. Open the shop to choose delivery and complete the purchase;
 adding parts to the cart does not spend money.
 
+NEW WORKBENCH OPTIONS AND INVENTORY SORTING
+
+Enable Automatic thermal paste, Remove dependencies while holding LMB,
+and Replace all customizable cables separately in F1. All three are off
+by default. In removal mode (2), hold LMB on a blocked part to remove its
+required cables, covers and parts in sequence with normal animation and
+screw speed. Release to pause, hold again to resume; Esc cancels the queue.
+Empty full water-cooling loops manually first.
+
+Thermal paste is applied when installing a CPU and reapplied during cooler
+installation if missing, including AIO coolers mounted in a case slot.
+
+In cable mode (3), select an active cable to replace all connected cables
+whose appearance the game allows you to change. Fixed PSU/cooler leads
+are skipped. Inventory buttons sort by the resale price shown on item cards
+or by arrival order, in either direction. The selection is saved. Sorting
+is enabled by default, newest arrivals first. The game stores insertion
+order rather than calendar timestamps.
+
 BUILD HELPER (F2)
 
 Enable Build Helper in F1, then press F2 and Alt to use its controls.
@@ -126,8 +145,11 @@ The button does not accept the job. Requirements appear automatically
 when working on the customer's PC.
 
 The panel shows the profile (minimum, recommended or 4K), RAM, VRAM, GPU,
-CPU and storage space. It also shows a suitable available CPU from the
-other brand and its socket. Check CPU and motherboard socket compatibility.
+CPU and storage space. Job clarifications appears only when the order adds
+conditions, including CPU/GPU brands, Team Group memory, Seagate drives and
+cables. A suitable available CPU/GPU replacement is suggested when needed.
+Check CPU and motherboard socket compatibility. Manual game lookup does
+not carry over the previous order's conditions.
 
 For an automatically displayed panel, press F3 to pin it while shopping.
 Press F3 again to hide a pinned panel. Press Alt to use Choose game for

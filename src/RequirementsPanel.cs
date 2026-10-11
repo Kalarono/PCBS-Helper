@@ -17,6 +17,7 @@ namespace PCBSCalculatorHelper
             public string Key;
             public ProgramRequirementsDesc Requirements;
             public int JobId;
+            public Job Job;
         }
 
         private readonly ManualLogSource log;
@@ -24,8 +25,9 @@ namespace PCBSCalculatorHelper
         private readonly PanelPlacement placement;
         private readonly List<Choice> jobChoices = new List<Choice>();
         private readonly List<Choice> catalog = new List<Choice>();
-        private readonly List<CpuCandidate> cpus = new List<CpuCandidate>();
-        private List<CpuCandidate> alternatives = new List<CpuCandidate>();
+        private readonly List<RequirementPart> parts = new List<RequirementPart>();
+        private readonly List<RequirementPart> candidates = new List<RequirementPart>();
+        private RequirementClarifications clarifications = new RequirementClarifications();
         private Choice selected;
         private Job currentJob;
         private bool loaded, manual, selecting;
@@ -51,6 +53,8 @@ namespace PCBSCalculatorHelper
         private Rect rect;
         private KeyCode toggleKey;
         private string lastLoggedKey;
+        private string detailsLanguage;
+        private bool clarificationError;
 
         public RequirementsPanel(ConfigFile config, ManualLogSource log, KeyCode toggleKey, bool autoShow)
         {
@@ -112,6 +116,8 @@ namespace PCBSCalculatorHelper
         {
             if (!Application.isFocused) placement.CancelDrag();
             if (!Enabled) return;
+            if (Visible && loaded && selected != null && detailsLanguage != I2.Loc.LocalizationManager.CurrentLanguageCode)
+                RefreshAlternatives();
             if ((Visible || autoShow) && !loaded && Time.unscaledTime >= nextLoadAttempt)
             {
                 nextLoadAttempt = Time.unscaledTime + 2;
@@ -147,6 +153,7 @@ namespace PCBSCalculatorHelper
         public void RefreshObjectives()
         {
             if (currentJob != null && !manual && !pinned) SelectJob(currentJob);
+            else if (!manual) RefreshAlternatives();
             if (observedEmail != null && observedEmail.isActiveAndEnabled) observedEmail.UpdateStatus();
             JobStatus status = observedStatus != null ? observedStatus : WorkshopUI.m_jobStatus;
             if (status != null)
@@ -232,7 +239,7 @@ namespace PCBSCalculatorHelper
                 string key;
                 ProgramRequirementsDesc desc;
                 if (TryGetRequirements(objective, out key, out desc))
-                    jobChoices.Add(new Choice { Key = key, Requirements = desc, JobId = job.GetId() });
+                    jobChoices.Add(new Choice { Key = key, Requirements = desc, JobId = job.GetId(), Job = job });
             }
             selected = jobChoices.Count > 0 ? jobChoices[0] : null;
             status = "This job has no visible Will it Run? requirements.";
@@ -285,18 +292,16 @@ namespace PCBSCalculatorHelper
                     int byName = String.Compare(a.Requirements.m_uiName, b.Requirements.m_uiName, StringComparison.OrdinalIgnoreCase);
                     return byName != 0 ? byName : a.Requirements.m_type.CompareTo(b.Requirements.m_type);
                 });
-                cpus.Clear();
+                parts.Clear(); candidates.Clear();
                 foreach (PartDesc part in PartsDatabase.GetAllParts())
                 {
-                    PartDescCPU cpu = part as PartDescCPU;
-                    if (cpu == null || !part.m_inShop || part.m_isPlatformLocked || (part.m_isDLC && !part.m_isDLCInstalled)) continue;
-                    cpus.Add(new CpuCandidate {
-                        Id = part.m_id, Name = part.m_uiName, Brand = CpuMatcher.Brand(part.m_manufacturer, part.m_uiName),
-                        Socket = SocketLabel(cpu.m_socket), Score = cpu.Test(), Price = part.m_price, Level = part.m_levelUnlock
-                    });
+                    if (part.m_isPlatformLocked || (part.m_isDLC && !part.m_isDLCInstalled)) continue;
+                    RequirementPart item = JobRequirementReader.FromPart(part);
+                    parts.Add(item);
+                    if (part.m_inShop && (part is PartDescCPU || part is PartDescGPU)) candidates.Add(item);
                 }
                 loaded = true;
-                log.LogInfo("Requirements database ready: " + catalog.Count + " game profiles, " + cpus.Count + " CPUs.");
+                log.LogInfo("Requirements database ready: " + catalog.Count + " game profiles, " + candidates.Count + " CPU/GPU candidates.");
                 return true;
             }
             catch (Exception ex) { log.LogWarning("Requirements data not ready yet: " + ex.Message); return false; }
@@ -304,26 +309,41 @@ namespace PCBSCalculatorHelper
 
         private void RefreshAlternatives()
         {
-            alternatives.Clear();
+            clarifications = new RequirementClarifications();
+            clarificationError = false;
+            detailsLanguage = I2.Loc.LocalizationManager.CurrentLanguageCode;
             detailsScroll = Vector2.zero;
-            if (selected == null || selected.Requirements.m_cpu == null) return;
-            PartDescCPU required = selected.Requirements.m_cpu;
+            if (selected == null) return;
+            ProgramRequirementsDesc r = selected.Requirements;
             CareerStatus career = CareerStatus.Get();
             GameController controller = GameController.Get();
             restrictByCareerLevel = controller != null && (GameMode)GameModeField.GetValue(controller) == GameMode.CAREER;
-            foreach (CpuCandidate cpu in cpus) cpu.Unlocked = !restrictByCareerLevel || (career != null && career.IsPartUnlocked(cpu.Id));
-            CpuCandidate cheapest = CpuMatcher.Cheapest(cpus, CpuMatcher.Brand(required.m_manufacturer, required.m_uiName), required.Test(), true);
-            alternatives = cheapest == null ? new List<CpuCandidate>() : new List<CpuCandidate> { cheapest };
-            if (lastLoggedKey != selected.Key)
+            foreach (RequirementPart part in candidates) part.Unlocked = !restrictByCareerLevel || (career != null && career.IsPartUnlocked(part.Id));
+            if (!manual && selected.Job != null)
             {
-                lastLoggedKey = selected.Key;
-                ProgramRequirementsDesc r = selected.Requirements;
+                try
+                {
+                    RequirementProfile profile = new RequirementProfile { Cpu = JobRequirementReader.FromPart(r.m_cpu),
+                        Gpu = JobRequirementReader.FromPart(r.m_gpu), Ram = r.m_ram, Storage = r.m_storage };
+                    clarifications = RequirementClarifications.Build(profile, JobRequirementReader.Read(selected.Job, parts), candidates, restrictByCareerLevel);
+                }
+                catch (Exception ex) { clarificationError = true; log.LogWarning("Could not read job clarifications: " + ex.Message); }
+            }
+            string logKey = selected.JobId + ":" + selected.Key + ":" + manual;
+            if (lastLoggedKey != logKey)
+            {
+                lastLoggedKey = logKey;
                 log.LogInfo("Requirements selected: " + r.m_uiName + " [" + r.m_type + "] RAM=" + r.m_ram +
                     " VRAM=" + (r.m_gpu == null ? 0 : r.m_gpu.m_vramGb) + " Storage=" + r.m_storage +
-                    " CPU=" + required.m_uiName + " CPU score=" + required.Test().ToString("F2", CultureInfo.InvariantCulture) +
+                    " CPU=" + (r.m_cpu == null ? "none" : r.m_cpu.m_uiName) +
                     " GPU=" + (r.m_gpu == null ? "none" : r.m_gpu.m_uiName) + " job=" + selected.JobId);
-                foreach (CpuCandidate cpu in alternatives)
-                    log.LogInfo("CPU alternative: " + cpu.Name + " score=" + cpu.Score.ToString("F2", CultureInfo.InvariantCulture) + " socket=" + cpu.Socket + " unlocked=" + cpu.Unlocked);
+                foreach (JobRefinement rule in clarifications.Notes) log.LogInfo("Job clarification: " + Clean(rule.Description));
+                foreach (RequirementPart part in new RequirementPart[] { clarifications.Cpu, clarifications.Gpu })
+                    if (part != null) log.LogInfo(part.Type + " replacement: " + part.Name + " score=" + part.Score.ToString("F2", CultureInfo.InvariantCulture) + " unlocked=" + part.Unlocked);
+                foreach (BrandReplacementOptions options in clarifications.BrandOptions)
+                    foreach (RequirementPart part in new RequirementPart[] { options.Cpu, options.Gpu })
+                        if (part != null) log.LogInfo(options.Rule.Brand + " " + part.Type + " brand option: " + part.Name +
+                            " score=" + part.Score.ToString("F2", CultureInfo.InvariantCulture) + " unlocked=" + part.Unlocked);
             }
         }
 
@@ -335,7 +355,7 @@ namespace PCBSCalculatorHelper
             float width = Mathf.Min(424 * scale, Screen.width * 0.46f);
             // Keep the virtual email's title bar and close button accessible.
             float top = (autoContext.StartsWith("email:", StringComparison.Ordinal) ? 218 : 118) * scale;
-            float desiredHeight = selected != null && !selecting ? (alternatives.Count == 0 ? 480 : 560) : 650;
+            float desiredHeight = selected != null && !selecting && clarifications.Notes.Count == 0 ? 480 : 650;
             float height = Mathf.Min(desiredHeight * scale, Screen.height - top - 24 * scale);
             rect = placement.Resolve(new Rect(Screen.width - width - 20 * scale, top, width, height));
             bool occluded = PointerOccluded != null && PointerOccluded(Event.current.mousePosition);
@@ -409,18 +429,55 @@ namespace PCBSCalculatorHelper
             y = Row(HelperLocalization.Text("GPU"), r.m_gpu == null ? "—" : Clean(r.m_gpu.m_uiName), y, width);
             y = Row(HelperLocalization.Text("CPU"), r.m_cpu == null ? "—" : Clean(r.m_cpu.m_uiName) + "\n" + SocketLabel(r.m_cpu.m_socket), y, width);
             y = Row(HelperLocalization.Text("Storage"), r.m_storage + HelperLocalization.Text(" GB"), y, width);
-            y += 12;
-            string brand = r.m_cpu == null ? "" : CpuMatcher.Brand(r.m_cpu.m_manufacturer, r.m_cpu.m_uiName);
-            y = Text(HelperLocalization.Text("CPU alternative • ") + (brand == "AMD" ? "Intel" : "AMD"), y, width, labelStyle);
-            foreach (CpuCandidate cpu in alternatives)
+            if (clarificationError)
+                y = Text(HelperLocalization.Text("Could not read the job clarifications. Check the order email."), y + 16, width, bodyStyle);
+            if (clarifications.Notes.Count > 0)
             {
-                y = Text(Clean(cpu.Name), y + 6, width, bodyStyle);
-                y = Text(cpu.Socket, y, width, mutedStyle);
+                y = Text(HelperLocalization.Text("Job clarifications"), y + 16, width, labelStyle);
+                foreach (JobRefinement rule in clarifications.Notes)
+                {
+                    string prefix = rule.Kind == JobRefinementKind.Brand && (rule.Type == "CPU" || rule.Type == "GPU")
+                        ? HelperLocalization.Text(rule.Type) + ": " : "";
+                    y = Text("• " + prefix + Clean(rule.Description), y + 6, width, bodyStyle);
+                }
+                if (clarifications.NeedsCpu) y = DrawReplacement("CPU", clarifications.Cpu, clarifications.ManualCpu, y + 12, width);
+                if (clarifications.NeedsGpu) y = DrawReplacement("GPU", clarifications.Gpu, clarifications.ManualGpu, y + 12, width);
+                bool hasBrandReplacement = false;
+                foreach (BrandReplacementOptions options in clarifications.BrandOptions)
+                {
+                    hasBrandReplacement |= options.Cpu != null || options.Gpu != null;
+                    if (options.Rule.Count > 1)
+                    {
+                        y = Text(HelperLocalization.Text("Brand alternatives • ") + options.Rule.Brand, y + 14, width, labelStyle);
+                        y = Text(HelperLocalization.Text("Required new parts: ") + options.Rule.Count + ". " +
+                            HelperLocalization.Text("Select the combination manually to meet the part count."), y + 6, width, mutedStyle);
+                        continue;
+                    }
+                    if (options.HasCpu && options.HasGpu)
+                    {
+                        y = Text(HelperLocalization.Text("Brand alternatives • ") + options.Rule.Brand, y + 14, width, labelStyle);
+                        y = Text(HelperLocalization.Text("One matching new part is enough; choose one of the alternatives below."), y + 6, width, mutedStyle);
+                    }
+                    if (options.HasCpu) y = DrawReplacement("CPU", options.Cpu, clarifications.ManualCpu, y + 10, width);
+                    if (options.HasGpu) y = DrawReplacement("GPU", options.Gpu, clarifications.ManualGpu, y + 10, width);
+                }
+                if (hasBrandReplacement)
+                    y = Text(HelperLocalization.Text("Alternatives meet Will it Run? for their category. Check socket, case and power compatibility."), y + 10, width, mutedStyle);
+                else if (clarifications.Cpu != null || clarifications.Gpu != null)
+                    y = Text(HelperLocalization.Text("Meets Will it Run? and the listed part constraints. Check socket, case and power compatibility."), y + 10, width, mutedStyle);
             }
-            if (alternatives.Count == 0) y = Text(HelperLocalization.Text(restrictByCareerLevel ? "No suitable alternatives at the current level." : "No suitable CPUs from the other brand."), y + 6, width, mutedStyle);
-            y = Text(HelperLocalization.Text("At least as fast in Will it Run?.\n") + HelperLocalization.Text(restrictByCareerLevel ? "Unlocked parts only. " : "No level restriction. ") + HelperLocalization.Text("Check the socket."), y + 12, width, mutedStyle);
             if (Event.current.type == EventType.Repaint) detailsHeight = y + 12;
             GUI.EndScrollView();
+        }
+
+        private float DrawReplacement(string type, RequirementPart part, bool needsManual, float y, float width)
+        {
+            y = Text(HelperLocalization.Text("Suitable replacement • ") + HelperLocalization.Text(type), y, width, labelStyle);
+            if (needsManual) return Text(HelperLocalization.Text("Select this part manually to meet all additional job conditions."), y + 6, width, mutedStyle);
+            if (part == null) return Text(HelperLocalization.Text(restrictByCareerLevel ? "No suitable alternatives at the current level." : "No suitable parts meet all these requirements."), y + 6, width, mutedStyle);
+            y = Text(Clean(part.Name), y + 6, width, bodyStyle);
+            string details = type == "CPU" ? SocketLabelText(part.Socket) : part.Vram + HelperLocalization.Text(" GB") + HelperLocalization.Text(" VRAM");
+            return Text(details + " • $" + part.Price, y, width, mutedStyle);
         }
 
         private float Row(string label, string value, float y, float width)
@@ -458,8 +515,10 @@ namespace PCBSCalculatorHelper
         { return HelperLocalization.Text(type == ProgramRequirementsDesc.Type.rec ? "Recommended" : type == ProgramRequirementsDesc.Type.min ? "Minimum" : "4K"); }
         private static string Clean(string value) { return Regex.Replace(value ?? "", "<[^>]+>", ""); }
         private static string SocketLabel(CpuSocket socket)
+        { return SocketLabelText(socket.ToString()); }
+        private static string SocketLabelText(string socket)
         {
-            return socket.ToString().Replace("LGA_", "LGA ").Replace("_COFFEE", " (Coffee Lake)")
+            return (socket ?? "").Replace("LGA_", "LGA ").Replace("_COFFEE", " (Coffee Lake)")
                 .Replace("_KABY", " (Kaby Lake)").Replace("_SKY", " (Skylake)").Replace("_PLUS", "+").Replace("_V3", "-v3");
         }
         public void Dispose() { placement.CancelDrag(); theme.Dispose(); }

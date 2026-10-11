@@ -131,27 +131,52 @@ namespace PCBSCalculatorHelper
             Vector3 a = parent.InverseTransformPoint(corners[0]), b = parent.InverseTransformPoint(corners[2]);
             return Rect.MinMaxRect(a.x, a.y, b.x, b.y);
         }
+        private sealed class RectLayout
+        {
+            private readonly RectTransform rect;
+            private readonly Vector2 anchorMin, anchorMax, pivot, position, size;
+            internal RectLayout(RectTransform rect)
+            {
+                this.rect = rect;
+                anchorMin = rect.anchorMin; anchorMax = rect.anchorMax; pivot = rect.pivot;
+                position = rect.anchoredPosition; size = rect.sizeDelta;
+            }
+            internal void Restore()
+            {
+                if (rect == null) return;
+                rect.anchorMin = anchorMin; rect.anchorMax = anchorMax; rect.pivot = pivot;
+                rect.anchoredPosition = position; rect.sizeDelta = size;
+            }
+        }
         private sealed class ButtonLayout
         {
-            public RectTransform Rect;
-            public Vector2 AnchorMin, AnchorMax, Pivot, Position, Size;
+            private readonly RectLayout rect, labelRect;
             public Text Text;
             public bool BestFit;
             public int MinSize, MaxSize;
+            private readonly HorizontalWrapMode horizontalOverflow;
+            private readonly VerticalWrapMode verticalOverflow;
+            private readonly TextAnchor alignment;
             public ButtonLayout(Button button)
             {
-                Rect = button.transform as RectTransform;
-                AnchorMin = Rect.anchorMin; AnchorMax = Rect.anchorMax; Pivot = Rect.pivot;
-                Position = Rect.anchoredPosition; Size = Rect.sizeDelta;
+                rect = new RectLayout(button.transform as RectTransform);
                 Text = button.GetComponentInChildren<Text>(true);
-                if (Text != null) { BestFit = Text.resizeTextForBestFit; MinSize = Text.resizeTextMinSize; MaxSize = Text.resizeTextMaxSize; }
+                if (Text != null)
+                {
+                    labelRect = new RectLayout(Text.rectTransform);
+                    BestFit = Text.resizeTextForBestFit; MinSize = Text.resizeTextMinSize; MaxSize = Text.resizeTextMaxSize;
+                    horizontalOverflow = Text.horizontalOverflow; verticalOverflow = Text.verticalOverflow; alignment = Text.alignment;
+                }
             }
             public void Restore()
             {
-                if (Rect == null) return;
-                Rect.anchorMin = AnchorMin; Rect.anchorMax = AnchorMax; Rect.pivot = Pivot;
-                Rect.anchoredPosition = Position; Rect.sizeDelta = Size;
-                if (Text != null) { Text.resizeTextForBestFit = BestFit; Text.resizeTextMinSize = MinSize; Text.resizeTextMaxSize = MaxSize; }
+                rect.Restore();
+                if (labelRect != null) labelRect.Restore();
+                if (Text != null)
+                {
+                    Text.resizeTextForBestFit = BestFit; Text.resizeTextMinSize = MinSize; Text.resizeTextMaxSize = MaxSize;
+                    Text.horizontalOverflow = horizontalOverflow; Text.verticalOverflow = verticalOverflow; Text.alignment = alignment;
+                }
             }
         }
         private void RestoreAction(EmailPane pane)
@@ -170,6 +195,22 @@ namespace PCBSCalculatorHelper
         {
             Text text = button.GetComponentInChildren<Text>(true);
             if (text == null) return;
+            RectTransform buttonRect = button.transform as RectTransform;
+            RectTransform labelRect = text.rectTransform;
+            RectTransform labelParent = labelRect.parent as RectTransform;
+            if (labelRect != buttonRect && labelParent != null)
+            {
+                // Cloning Accept also copies its label's fixed width/offsets.
+                // Best-fit only sees the text rect, not the narrower button.
+                // Convert the button's bounds even when the label is nested.
+                Rect bounds = Bounds(buttonRect, labelParent);
+                float padding = Mathf.Min(8, bounds.width * 0.1f);
+                SetRect(labelRect, labelParent, bounds.xMin + padding, bounds.yMin,
+                    Mathf.Max(1, bounds.width - 2 * padding), bounds.height);
+            }
+            text.alignment = TextAnchor.MiddleCenter;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = Mathf.Min(12, text.fontSize); text.resizeTextMaxSize = text.fontSize;
         }

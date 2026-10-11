@@ -11,8 +11,9 @@ Russian or English, with English used for other languages.
 Both helpers are embedded in the DLL; no separate application is needed.
 
 This README includes installation instructions and a **step-by-step guide
-with 9 GIF demonstrations**:
-[F1 settings](#f1) · [F2 Build Helper](#f2) · [F3 Will it Run?](#f3).
+with 13 GIF demonstrations**:
+[F1 settings](#f1) · [F2 Build Helper](#f2) · [F3 Will it Run?](#f3) ·
+[new features in 1.0.1](#v101).
 
 ## Download and install
 
@@ -52,7 +53,7 @@ The **Source code** archives are not needed to install the helper.
 
 | Key | Action |
 | --- | --- |
-| **F1** | Settings: install apps, instant 3DMark, reveal objectives and enable the F2/F3 helpers. |
+| **F1** | Settings: apps, instant 3DMark, job objectives, thermal paste, dependency removal, cable replacement, sorting and the F2/F3 helpers. |
 | **F2** | Build Helper: estimate 3DMark scores, find builds, upgrades and replacement parts. |
 | **F3** | Will it Run? Helper; opens/pins the panel, or hides it when already pinned. |
 | **Alt** | Toggle the cursor to interact with F2/F3. |
@@ -266,6 +267,72 @@ The **Will it Run?** button opens the requirements without accepting the job.
 For manual lookup, press **Alt** and click **Choose game**.
 **From job** returns to the current job's requirements.
 Press **Alt** again to turn off the cursor.
+
+<a id="v101"></a>
+
+### New feature demonstrations in 1.0.1
+
+Enable the three build helpers individually in **F1**; all three are disabled
+by default. Inventory sorting is enabled by default. Automatic thermal paste
+is described under [F1 settings](#f1); the other new features are shown below.
+
+#### 10. Inventory sorting
+
+1. In **F1**, check that **Inventory sorting** is enabled.
+2. Open the inventory. The **Price** and **Arrival** buttons appear in its title bar.
+3. Click **Arrival** to switch between newest-first and oldest-first order.
+4. Click **Price** to switch between cheapest-first and most-expensive-first order.
+
+Your selected order is saved. Price matches the resale value on the item card.
+Arrival sorting uses the saved order in which items entered the inventory,
+rather than calendar dates.
+
+![Sorting inventory by price and arrival order in either direction](docs/images/guide/10_inventory_sorting.gif)
+
+#### 11. Job clarifications and suitable replacements in F3
+
+1. Enable **Will it Run? Helper (F3)** in **F1**.
+2. Open an email with game requirements and additional customer requests.
+3. Click **Will it Run?** and read the **Job clarifications** section.
+4. Check the brand, model and other component requirements. When needed,
+   the helper suggests a suitable CPU/GPU replacement based on performance,
+   VRAM and career level.
+
+The GIF shows two jobs requesting AMD and EVGA components.
+A part that meets the job requirements must also be
+compatible with the chosen PC's socket, case and power supply.
+
+![AMD and EVGA job clarifications with suitable CPU/GPU suggestions](docs/images/guide/11_will_it_run_order_details.gif)
+
+#### 12. Remove dependencies while holding LMB
+
+1. Enable **Remove dependencies while holding LMB** in **F1**.
+2. Press **2** to enter removal mode.
+3. Point at a blocked component and hold the **left mouse button**.
+   The helper disconnects cables, removes obstructing parts and then
+   removes the selected component using the game's normal animations.
+4. Release **LMB** to pause. Hold it again to resume.
+   Press **Esc** to cancel the queue.
+
+The example removes a motherboard after clearing its dependencies.
+Drain full water-cooling loops manually first. The helper displays a message
+if a dependency needs manual removal.
+
+![Enabling dependency removal and removing a motherboard](docs/images/guide/12_remove_dependencies.gif)
+
+#### 13. Bulk replacement of colored cables
+
+1. Enable **Replace all customizable cables** in **F1**.
+2. Press **3** to enter cable mode and open the cable selection.
+3. Select the cable color and style you want. Connected cables whose appearance
+   the game allows you to change automatically switch to the selected style.
+4. Check the result and the customer's job objectives.
+
+The demonstration selects flexible red cables and completes the corresponding
+job objective. Fixed cables on non-modular power supplies and cooling
+components are skipped.
+
+![Selecting flexible red cables and replacing eligible connected cables in bulk](docs/images/guide/13_replace_customizable_cables.gif)
 
 ## Update and uninstall
 

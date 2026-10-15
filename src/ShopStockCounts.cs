@@ -39,6 +39,13 @@ namespace PCBSCalculatorHelper
 
     internal static class ShopStockCategories
     {
+        internal static bool SupportsInventoryCounters(PartDesc.ShopCategory category)
+        {
+            // Case parts are individual covers/brackets generated for the PC
+            // currently on the bench, rather than interchangeable stock.
+            return category != PartDesc.ShopCategory.CaseParts && SupportsCounters(category);
+        }
+
         internal static bool SupportsCounters(PartDesc.ShopCategory category)
         {
             switch (category)

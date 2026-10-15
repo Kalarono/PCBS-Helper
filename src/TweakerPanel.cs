@@ -25,7 +25,7 @@ namespace PCBSCalculatorHelper
         private readonly float[] rowHeights = new float[12];
         private static readonly string[] Labels = {
             "Install All Apps", "Instant 3DMark", "Click Purchase", "Show Diagnose Objectives", "Show Hidden Objectives",
-            "Shop inventory counters", "Automatic thermal paste", "Remove dependencies while holding LMB",
+            "Part stock counters", "Automatic thermal paste", "Remove dependencies while holding LMB",
             "Replace all customizable cables", "Inventory sorting", "Build Helper", "Will it Run? Helper"
         };
         public bool Visible { get; private set; }

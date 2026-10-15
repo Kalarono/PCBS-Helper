@@ -91,6 +91,19 @@ internal static class ShopEnhancementsTests
             PartDesc.ShopCategory.CaseParts, PartDesc.ShopCategory.Radiators, PartDesc.ShopCategory.Reservoir,
             PartDesc.ShopCategory.CPUBlock, PartDesc.ShopCategory.WaterCooledGPU })
             Check(ShopStockCategories.SupportsCounters(category), "Installable hardware retains its counter: " + category);
+        foreach (PartDesc.ShopCategory category in new[] {
+            PartDesc.ShopCategory.Cables, PartDesc.ShopCategory.Misc, PartDesc.ShopCategory.CaseParts,
+            PartDesc.ShopCategory.Pipes, PartDesc.ShopCategory.PipeConnectors, PartDesc.ShopCategory.Coolant,
+            PartDesc.ShopCategory.Monitors, PartDesc.ShopCategory.Keyboards, PartDesc.ShopCategory.Mice,
+            PartDesc.ShopCategory.MousePads, PartDesc.ShopCategory.Headsets, PartDesc.ShopCategory.Microphones })
+            Check(!ShopStockCategories.SupportsInventoryCounters(category), "Inventory exclusions: " + category);
+        foreach (PartDesc.ShopCategory category in new[] {
+            PartDesc.ShopCategory.CPU, PartDesc.ShopCategory.GPU, PartDesc.ShopCategory.Memory,
+            PartDesc.ShopCategory.Motherboard, PartDesc.ShopCategory.Storage, PartDesc.ShopCategory.PSU,
+            PartDesc.ShopCategory.Case, PartDesc.ShopCategory.Cooling, PartDesc.ShopCategory.CaseCooling,
+            PartDesc.ShopCategory.Radiators, PartDesc.ShopCategory.Reservoir,
+            PartDesc.ShopCategory.CPUBlock, PartDesc.ShopCategory.WaterCooledGPU })
+            Check(ShopStockCategories.SupportsInventoryCounters(category), "Inventory hardware retains counts: " + category);
     }
 
     private static void CheckScrolling()

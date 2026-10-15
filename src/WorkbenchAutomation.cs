@@ -59,7 +59,7 @@ namespace PCBSCalculatorHelper
             Hook(harmony, typeof(InstallingPartState), "HandleExit", "BeforeInstallExit", null);
             Hook(harmony, typeof(WorkingOnComputerState), "DisassemblyTick", "BeforeDisassembly", null);
             Hook(harmony, typeof(WorkingOnComputerState), "AssemblyTick", "BeforeAssembly", null);
-            Hook(harmony, typeof(WorkingOnComputerState), "OnStateEnter", "BeforeWorkEntered", null);
+            Hook(harmony, typeof(WorkingOnComputerState), "OnStateEnter", "BeforeWorkEntered", "AfterWorkEntered");
             Hook(harmony, typeof(WorkingOnComputerState), "HandleInput", "BeforeWorkInput", null);
             Hook(harmony, typeof(WorkingOnComputerState), "HandleExit", "BeforeWorkExit", null);
             Hook(harmony, typeof(CableInstance), "Update", "BeforeCableAnimation", null);
@@ -67,7 +67,6 @@ namespace PCBSCalculatorHelper
             Hook(harmony, typeof(AM3Slot), "OpenSocket", null, "AfterPinAnimation");
             Hook(harmony, typeof(AM3Slot), "CloseSocket", null, "AfterPinAnimation");
             Hook(harmony, typeof(LGASlot), "Update", "BeforeSocketAnimation", null);
-            Hook(harmony, typeof(GameController), "SetCableType", null, "OnCableSelected");
         }
 
         private static void Hook(Harmony harmony, Type type, string method, string prefix, string postfix)
@@ -122,10 +121,19 @@ namespace PCBSCalculatorHelper
             try { return !instance.removal.BeginInstall(__instance, Selected.GetValue(__instance) as ComponentPC); }
             catch (Exception ex) { instance.DependencyFailure(ex, true); return true; }
         }
-        private static void BeforeWorkEntered(WorkingOnComputerState __instance)
+        private static void BeforeWorkEntered(WorkingOnComputerState __instance, out PartDesc __state)
         {
+            __state = null;
             if (instance == null) return;
-            try { instance.removal.BeforeWorkEntered(__instance); }
+            try
+            {
+                instance.removal.BeforeWorkEntered(__instance);
+                GameController ctrl = GameController.Get();
+                PartInstance selected = ctrl == null ? null : ctrl.selectedItem;
+                PartDesc part = selected == null ? null : selected.GetPart();
+                if (instance.CableColour.Value && part != null && part.m_type == PartDesc.Type.CABLE)
+                    __state = part;
+            }
             catch (Exception ex) { instance.DependencyFailure(ex); }
         }
         private static bool BeforeWorkInput(WorkingOnComputerState __instance)
@@ -178,14 +186,13 @@ namespace PCBSCalculatorHelper
                 yield return animation.Current;
             }
         }
-        private static void OnCableSelected(PartDesc __0)
+        private static void AfterWorkEntered(WorkingOnComputerState __instance, PartDesc __state)
         {
-            if (instance == null || !instance.CableColour.Value || __0 == null || __0.m_type != PartDesc.Type.CABLE) return;
-            try
-            {
-                WorkingOnComputerState state = StateNow as WorkingOnComputerState;
-                if (state != null) instance.cables.Apply(state, __0);
-            }
+            // Capture the explicit inventory selection before the native entry
+            // clears selectedItem in SetCablingMode. SetCableType is a trivial
+            // setter that Mono may inline, so it is not a reliable patch point.
+            if (instance == null || !instance.CableColour.Value || __state == null) return;
+            try { instance.cables.Apply(__instance, __state); }
             catch (Exception ex) { instance.Warn("Cable replacement", ex); }
         }
 
@@ -204,6 +211,7 @@ namespace PCBSCalculatorHelper
         internal void Notify(string english)
         { if (!removal.InstallationActive) { notice = english; noticeUntil = Time.unscaledTime + 4; } }
         internal void LogRemoval(string message) { log.LogInfo("Dependency removal: " + message); }
+        internal void LogCableReplacement(string message) { log.LogInfo("Cable replacement: " + message); }
         internal void LogRemovalBlocked(string target, List<string> trace)
         { log.LogWarning("Dependency removal stopped for " + target + "\n  " + String.Join("\n  ", trace.ToArray())); }
         internal void Warn(string action, Exception ex) { log.LogWarning(action + ": " + ex); Notify("Workbench action stopped. See the helper log."); }

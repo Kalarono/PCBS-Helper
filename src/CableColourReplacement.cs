@@ -23,17 +23,24 @@ namespace PCBSCalculatorHelper
         internal void Apply(WorkingOnComputerState state, PartDesc selected)
         {
             Case pc = WorkbenchAutomation.WorkCase.GetValue(state) as Case;
-            if (pc == null) return;
+            if (pc == null)
+            {
+                owner.LogCableReplacement("No workbench PC for selected style " + selected.m_id);
+                owner.Notify("No PC available for cable replacement.");
+                return;
+            }
             CableVisuals visuals = PartsDatabase.GetCableVisuals(selected);
-            int changed = 0;
+            if (visuals == null) throw new InvalidOperationException("Cable style has no visuals: " + selected.m_id);
+            int changed = 0, failed = 0, already = 0, fixedStyle = 0, notReady = 0;
             CableInstance firstChanged = null;
             foreach (CableInstance cable in pc.currentCables.ToArray())
             {
                 if (cable == null || cable.Uninstalling || cable.m_start == null || cable.m_end == null ||
-                    cable.m_cableMesh == null || (cable.m_desc != null && cable.m_desc.m_id == selected.m_id)) continue;
+                    cable.m_cableMesh == null) { notReady++; continue; }
                 CableDesc desc = Description.GetValue(cable.m_cableMesh) as CableDesc;
                 if (desc == null || !WorkbenchRules.CanRecolour(desc.m_alwaysUseDefaulVisuals,
-                    desc.m_nonInteractive, cable.m_start.m_overrideCableVisuals)) continue;
+                    desc.m_nonInteractive, cable.m_start.m_overrideCableVisuals)) { fixedStyle++; continue; }
+                if (cable.m_desc != null && cable.m_desc.m_id == selected.m_id) { already++; continue; }
                 try
                 {
                     // Retain CableInstance, connectors, plugs and root renderer.
@@ -44,14 +51,20 @@ namespace PCBSCalculatorHelper
                     if (firstChanged == null) firstChanged = cable;
                     changed++;
                 }
-                catch (Exception ex) { owner.Warn("Cable recolour " + cable.m_start.id + " -> " + cable.m_end.id, ex); }
+                catch (Exception ex)
+                {
+                    failed++;
+                    owner.Warn("Cable recolour " + cable.m_start.id + " -> " + cable.m_end.id, ex);
+                }
             }
             if (changed > 0)
             {
                 pc.OnChangePart(firstChanged.gameObject);
                 pc.UpdateGameStatus();
-                owner.Notify("Customizable cables replaced.");
             }
+            owner.LogCableReplacement("Style=" + selected.m_id + ", changed=" + changed + ", failed=" + failed +
+                ", already=" + already + ", fixed=" + fixedStyle + ", notReady=" + notReady);
+            owner.Notify(WorkbenchRules.CableReplacementMessage(changed, failed, already));
         }
 
         private static void RebuildVisuals(CableMesh current, CableDesc desc, CableVisuals visuals)

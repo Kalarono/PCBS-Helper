@@ -20,6 +20,7 @@ namespace PCBSCalculatorHelper
         private readonly ManualLogSource log;
         private readonly Dictionary<Shop, SortBinding> shops = new Dictionary<Shop, SortBinding>();
         private readonly Dictionary<ShopItem, ShopCardPresentation> cards = new Dictionary<ShopItem, ShopCardPresentation>();
+        private readonly Dictionary<ItemDisplay, InventoryStockPresentation> inventoryCards = new Dictionary<ItemDisplay, InventoryStockPresentation>();
         private Dictionary<string, ShopStockCounts> counts = new Dictionary<string, ShopStockCounts>();
         private static readonly FieldInfo ShopID = AccessTools.Field(typeof(Shop), "m_shopID");
         private static readonly FieldInfo DropdownValue = AccessTools.Field(typeof(Dropdown), "m_Value");
@@ -31,7 +32,7 @@ namespace PCBSCalculatorHelper
         {
             sortSettings = new ShopSortSettings(config); this.log = log; instance = this;
             StockCounters = config.Bind("Shop", "ShowStockCounters", true,
-                "Show inventory quantities in shop cards: green circle = new, yellow diamond = used, red cross = broken. Hover for details.");
+                "Show model quantities in shop and inventory cards: green circle = new, yellow diamond = used, red cross = broken. Hover for details.");
             StockCounters.SettingChanged += OnCountersChanged;
         }
 
@@ -47,6 +48,8 @@ namespace PCBSCalculatorHelper
                 new HarmonyMethod(typeof(ShopEnhancements), "AfterItemChanged"), null, null, null);
             harmony.Patch(AccessTools.Method(typeof(ShopItem), "UpdateInventoryCountText"), null,
                 new HarmonyMethod(typeof(ShopEnhancements), "AfterNativeCount"), null, null, null);
+            harmony.Patch(AccessTools.Method(typeof(ItemDisplay), "Init", new[] { typeof(PartInstance), typeof(Case), typeof(bool), typeof(PeripheralSlot) }), null,
+                new HarmonyMethod(typeof(ShopEnhancements), "AfterInventoryItemChanged"), null, null, null);
             CareerStatus.s_onInventoryUpdated += Invalidate;
         }
 
@@ -99,6 +102,28 @@ namespace PCBSCalculatorHelper
                 ui.HideNativeCount();
         }
 
+        private static void AfterInventoryItemChanged(ItemDisplay __instance, PartInstance __0)
+        {
+            if (instance == null || instance.disposed || __instance == null) return;
+            try
+            {
+                InventoryStockPresentation ui;
+                PartDesc part = __0 == null || __0.IsProxy() ? null : __0.GetPart();
+                bool eligible = part != null && ShopStockCategories.SupportsInventoryCounters(part.m_shopCategory);
+                if (!instance.inventoryCards.TryGetValue(__instance, out ui) || ui == null)
+                {
+                    if (!eligible) return;
+                    ui = __instance.gameObject.AddComponent<InventoryStockPresentation>();
+                    ui.Initialize(__instance, instance.stockIcons);
+                    instance.inventoryCards[__instance] = ui;
+                }
+                ui.Part = __0;
+                instance.RefreshCounts();
+                instance.Apply(ui);
+            }
+            catch (Exception ex) { instance.log.LogWarning("Inventory stock card: " + ex); }
+        }
+
         private void Invalidate() { dirty = true; }
         private void RefreshCounts()
         {
@@ -122,19 +147,31 @@ namespace PCBSCalculatorHelper
             ui.ShowStock(stock, HelperLocalization.Russian, StockCounters.Value && eligible);
         }
 
+        private void Apply(InventoryStockPresentation ui)
+        {
+            PartDesc part = ui.Part == null || ui.Part.IsProxy() ? null : ui.Part.GetPart();
+            bool eligible = part != null && ShopStockCategories.SupportsInventoryCounters(part.m_shopCategory);
+            ShopStockCounts stock = new ShopStockCounts();
+            if (eligible) counts.TryGetValue(part.m_id, out stock);
+            ui.Show(stock, HelperLocalization.Russian, StockCounters.Value && eligible);
+        }
+
         internal void Update()
         {
             if (disposed || Time.unscaledTime < nextRefresh) return;
             nextRefresh = Time.unscaledTime + 0.5f;
             foreach (Shop shop in shops.Keys.Where(s => s == null).ToArray()) shops.Remove(shop);
             foreach (ShopItem item in cards.Keys.Where(i => i == null).ToArray()) cards.Remove(item);
-            if (!cards.Keys.Any(i => i.gameObject.activeInHierarchy)) return;
+            foreach (ItemDisplay item in inventoryCards.Keys.Where(i => i == null).ToArray()) inventoryCards.Remove(item);
+            if (!cards.Keys.Any(i => i.gameObject.activeInHierarchy) &&
+                !inventoryCards.Keys.Any(i => i.gameObject.activeInHierarchy)) return;
             try
             {
                 // Condition changes do not always raise the normal inventory
                 // event; a bounded refresh covers those too.
                 dirty = true; RefreshCounts();
                 foreach (var pair in cards) if (pair.Key.gameObject.activeInHierarchy) Apply(pair.Key, pair.Value);
+                foreach (var pair in inventoryCards) if (pair.Key.gameObject.activeInHierarchy) Apply(pair.Value);
             }
             catch (Exception ex) { log.LogWarning("Shop inventory counts: " + ex); }
         }
@@ -147,8 +184,9 @@ namespace PCBSCalculatorHelper
             foreach (SortBinding binding in shops.Values)
                 if (binding.Dropdown != null) binding.Dropdown.onValueChanged.RemoveListener(binding.Changed);
             foreach (ShopCardPresentation card in cards.Values) if (card != null) card.Dispose();
+            foreach (InventoryStockPresentation card in inventoryCards.Values) if (card != null) card.Dispose();
             stockIcons.Dispose();
-            shops.Clear(); cards.Clear();
+            shops.Clear(); cards.Clear(); inventoryCards.Clear();
             if (instance == this) instance = null;
         }
 

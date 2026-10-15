@@ -40,6 +40,13 @@ internal static class WorkbenchGameContractTests
             Method(install, "UninstallState", "Case", "UnityEngine.Camera", "ComponentPC");
             TypeDefinition controller = Type(game, "GameController");
             Field(controller, "m_currentState", "State"); Method(controller, "SetCableType", "PartDesc");
+            Method(controller, "get_selectedItem");
+            MethodDefinition workEnter = Method(work, "OnStateEnter");
+            Check(workEnter.Body.Instructions.Any(i => i.Operand is MethodReference &&
+                ((MethodReference)i.Operand).Name == "SetCableType"), "A selected inventory cable is processed on workbench entry.");
+            MethodDefinition cableMode = Method(work, "SetCablingMode");
+            Check(cableMode.Body.Instructions.Any(i => i.Operand is MethodReference &&
+                ((MethodReference)i.Operand).Name == "set_selectedItem"), "Capture cable selection before native cabling mode clears it.");
             TypeDefinition cable = Type(game, "CableInstance");
             Field(cable, "m_playerChoice", "System.Boolean"); Method(cable, "Update"); Method(cable, "Uninstall");
             Method(cable, "SnapToInstalled"); Method(cable, "GetCableEnd");
@@ -99,6 +106,12 @@ internal static class WorkbenchGameContractTests
         }
         using (ModuleDefinition helper = ModuleDefinition.ReadModule(args[1]))
         {
+            TypeDefinition automation = Type(helper, "WorkbenchAutomation");
+            Method(automation, "BeforeWorkEntered", "WorkingOnComputerState", "PartDesc&");
+            Method(automation, "AfterWorkEntered", "WorkingOnComputerState", "PartDesc");
+            MethodDefinition recolour = Method(Type(helper, "CableColourReplacement"), "Apply", "WorkingOnComputerState", "PartDesc");
+            Check(!recolour.Body.Instructions.Any(i => i.OpCode == OpCodes.Ldfld && i.Operand is FieldReference &&
+                ((FieldReference)i.Operand).Name == "m_playerChoice"), "Autoconnected cables must not be excluded by their creation history.");
             TypeDefinition removal = helper.Types.First(x => x.Name == "DependencyRemoval");
             MethodDefinition fromBlocker = Method(removal, "FromBlocker", "IBlocker", "Slot");
             Check(fromBlocker.Body.Instructions.Any(x => x.OpCode == OpCodes.Isinst && x.Operand is TypeReference &&
@@ -120,9 +133,7 @@ internal static class WorkbenchGameContractTests
             MethodDefinition ready = removal.Methods.First(x => x.Name == "Ready");
             Check(ready.Body.Instructions.Any(x => x.Operand is MethodReference && ((MethodReference)x.Operand).Name == "IsPinBlocked"),
                 "Latch readiness must respect the native socket blocker check before toggling.");
-            TypeDefinition automation = helper.Types.First(x => x.Name == "WorkbenchAutomation");
             Method(automation, "BeforeAssembly", "WorkingOnComputerState");
-            Method(automation, "BeforeWorkEntered", "WorkingOnComputerState");
             Method(automation, "AfterPinAnimation", "CPin", "System.Collections.IEnumerator&");
             Method(automation, "BeforeSocketAnimation", "LGASlot");
             MethodDefinition paste = Method(automation, "OnInstallEntered", "InstallingPartState");

@@ -25,6 +25,13 @@ internal static class HelperLocalizationTests
         Check(HelperLocalization.Text("Could not read the job clarifications. Check the order email.") == "Не удалось прочитать уточнения заказа. Проверьте письмо клиента.", "Missing job data must have a readable localized message.");
         Check(HelperLocalization.Text("Install All Apps") == "Устанавливать все приложения", "Tweaker settings are localized.");
         Check(HelperLocalization.Text("Shop inventory counters") == "Наличие деталей в магазине", "The F1 shop counter toggle is localized.");
+        Check(HelperLocalization.Text("Part stock counters") == "Счётчики деталей", "The shared shop/inventory counter toggle is localized.");
+        foreach (string result in new[] {
+            "Some cables could not be replaced. See the helper log.", "Cable replacement failed. See the helper log.",
+            "Customizable cables already use this style.",
+            "No connected cables support this style. Fixed cables keep their original appearance.",
+            "No PC available for cable replacement." })
+            Check(HelperLocalization.Text(result) != result, "Cable result is localized: " + result);
         Check(HelperLocalization.Text("A dependency needs manual removal.") == "Зависимость требует ручного снятия.", "Unknown dependencies must not falsely report a water loop.");
         Check(HelperLocalization.Text("Dependency removal stopped. See BepInEx/LogOutput.log.") == "Автоснятие остановлено. Причина в BepInEx/LogOutput.log.", "Stopped queues point to the log containing the visited dependency chain.");
         Check(HelperLocalization.Text("Empty the full water loop before removing this dependency.") == "Перед снятием этой зависимости нужно слить заполненный водяной контур.", "Actual full water loops have a separate localized explanation.");

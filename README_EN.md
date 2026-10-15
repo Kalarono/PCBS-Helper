@@ -362,14 +362,16 @@ components are skipped.
   in the helper's config.
 - Models held in inventory show compact icons with quantities below their
   specifications: **green circle — new, yellow diamond — used, red cross —
-  broken**. Hover for a text legend. Toggle **Shop inventory counters** in
-  **F1**, above Automatic thermal paste. Counts include parts in inventory;
+  broken**. The same counters appear on inventory cards. Hover for a text
+  legend. Toggle **Part stock counters** in **F1**, above Automatic thermal paste.
+  Counts include parts in inventory;
   installed parts and orders awaiting delivery are not included.
   Counters are hidden for Cables, Tools & Software, all peripherals (keyboards,
   mice, mouse pads, headsets, monitors and microphones), and the water-cooling
   shop's Coolant, Connectors and Tubing categories. This also applies to search
   results and product pages; the native purchase button indicates ownership.
   Other water-cooling components retain their counters.
+  The inventory also excludes the Case Parts section (panels and slot covers).
 - Long specifications scroll with the mouse wheel inside the card, with a
   thin scrollbar on the right. Scrolling beyond either end continues through
   the main catalog in that direction.

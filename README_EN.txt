@@ -130,7 +130,8 @@ SHOP
 
 Sort by is remembered between launches separately for each shop. Models in
 inventory show quantities with a green circle (new), yellow diamond (used)
-and red cross (broken). Hover for a text legend. F1 → Shop inventory counters,
+and red cross (broken). The same counters appear on inventory cards.
+Hover for a text legend. F1 → Part stock counters,
 above Automatic thermal paste, toggles the counters and remembers the choice.
 Installed parts and undelivered orders are excluded.
 Counters are hidden for Cables, Tools & Software, all peripherals (keyboards,
@@ -138,6 +139,7 @@ mice, mouse pads, headsets, monitors and microphones), and the water-cooling
 shop's Coolant, Connectors and Tubing categories. This also applies to search
 results and product pages; the native purchase button indicates ownership.
 Other water-cooling components retain their counters.
+The inventory also excludes Case Parts (panels and slot covers).
 Long specifications scroll with the mouse wheel inside each card.
 At either edge, scrolling continues through the catalog.
 Counters default to on; other shop improvements are automatic. All are in the helper DLL;

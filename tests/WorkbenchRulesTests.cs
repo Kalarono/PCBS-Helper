@@ -29,6 +29,11 @@ internal static class WorkbenchRulesTests
         Check(!WorkbenchRules.CanRecolour(true, false, null), "Default-only cables cannot change colour.");
         Check(!WorkbenchRules.CanRecolour(false, true, null), "Noninteractive cables cannot change colour.");
         Check(!WorkbenchRules.CanRecolour(false, false, "PSU fixed wires"), "Nonmodular PSU wiring keeps its fixed visuals.");
+        Check(WorkbenchRules.CableReplacementMessage(3, 0, 0) == "Customizable cables replaced.", "A completed replacement reports success.");
+        Check(WorkbenchRules.CableReplacementMessage(0, 0, 2) == "Customizable cables already use this style.", "Selecting the existing style reports a no-op.");
+        Check(WorkbenchRules.CableReplacementMessage(0, 0, 0).StartsWith("No connected cables"), "Fixed or absent cables no longer fail silently.");
+        Check(WorkbenchRules.CableReplacementMessage(0, 1, 2).StartsWith("Cable replacement failed"), "A failed rebuild takes precedence over already matching cables.");
+        Check(WorkbenchRules.CableReplacementMessage(2, 1, 0).StartsWith("Some cables"), "Partial failures are not reported as complete success.");
         Console.WriteLine("Workbench behavior: " + checks + " assertions passed.");
     }
 }

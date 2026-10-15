@@ -27,6 +27,15 @@ internal static class ShopGameContractTests
             Method(career, "GetInventory");
             Check(career.Events.Any(e => e.Name == "s_onInventoryUpdated" && e.EventType.FullName == "System.Action"), "Native inventory invalidation event is available.");
             Method(part, "GetPartId"); Method(part, "IsNew"); Method(part, "IsBroken"); Method(part, "IsProxy");
+            Method(part, "GetPart");
+            TypeDefinition inventoryItem = Type(game, "ItemDisplay");
+            Method(inventoryItem, "Init", "PartInstance", "Case", "System.Boolean", "PeripheralSlot");
+            Field(inventoryItem, "image", "UnityEngine.UI.Image"); Field(inventoryItem, "title", "UnityEngine.UI.Text");
+            TypeDefinition inventory = Type(game, "Inventory");
+            TypeDefinition creation = inventory.NestedTypes.Single(t => t.Name.StartsWith("<CoCreateItems>"));
+            Check(creation.Methods.Single(m => m.Name == "MoveNext").Body.Instructions.Any(i =>
+                i.Operand is MethodReference && ((MethodReference)i.Operand).DeclaringType.Name == "ItemDisplay" &&
+                ((MethodReference)i.Operand).Name == "Init"), "Inventory cards pass through the stock badge hook after native filtering.");
             TypeDefinition dropdown = Type(ui, "Dropdown"), scroll = Type(ui, "ScrollRect");
             Field(dropdown, "m_Value", "System.Int32"); Method(dropdown, "RefreshShownValue");
             foreach (string name in new[] { "OnScroll", "OnBeginDrag", "OnDrag", "OnEndDrag", "OnInitializePotentialDrag" })
@@ -37,6 +46,7 @@ internal static class ShopGameContractTests
         {
             TypeDefinition hooks = Type(helper, "ShopEnhancements");
             Method(hooks, "AfterShopStarted", "Shop"); Method(hooks, "AfterItemChanged", "ShopItem"); Method(hooks, "AfterNativeCount", "ShopItem");
+            Method(hooks, "AfterInventoryItemChanged", "ItemDisplay", "PartInstance");
             TypeDefinition scroll = Type(helper, "ShopDescriptionScroll");
             Check(scroll.BaseType.FullName == "UnityEngine.UI.ScrollRect", "Specs use the native UI scrolling and clipping system.");
         }

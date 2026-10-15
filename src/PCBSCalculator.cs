@@ -11,7 +11,7 @@ using ZenFulcrum.EmbeddedBrowser;
 
 namespace PCBSCalculatorHelper
 {
-    [BepInPlugin("local.pcbs.calculator", "PCBS-Helper", "1.0.1")]
+    [BepInPlugin("local.pcbs.calculator", "PCBS-Helper", "1.0.2")]
     [DefaultExecutionOrder(-32000)]
     public sealed class CalculatorPlugin : BaseUnityPlugin
     {
@@ -51,6 +51,7 @@ namespace PCBSCalculatorHelper
         private PurchaseByClick purchaseByClick;
         private WorkbenchAutomation workbench;
         private InventorySorting inventorySorting;
+        private ShopEnhancements shopEnhancements;
         private readonly Dictionary<string, JSONNode> completedBuildOrders = new Dictionary<string, JSONNode>();
         private JSONNode pendingJobImport;
         private bool panelOwnsCursor;
@@ -95,10 +96,11 @@ namespace PCBSCalculatorHelper
             expanded = expandedSetting.Value;
             workbench = new WorkbenchAutomation(Config, Logger);
             inventorySorting = new InventorySorting(Config, Logger);
+            shopEnhancements = new ShopEnhancements(Config, Logger);
             tweaker = new TweakerPanel(Config, Logger, tweakerKey.Value, hotkey.Value, requirementsKey.Value, requirements.RefreshObjectives,
                 calculatorEnabled, requirementsEnabled,
                 delegate(bool value) { if (!value) SetVisible(false); UpdatePanelCursor(); },
-                delegate(bool value) { requirements.SetEnabled(value); UpdatePanelCursor(); }, workbench, inventorySorting);
+                delegate(bool value) { requirements.SetEnabled(value); UpdatePanelCursor(); }, workbench, inventorySorting, shopEnhancements.StockCounters);
             htmlPath = Path.Combine(Path.GetDirectoryName(Info.Location), "helper-calculator.html");
             calculatorSession = new CalculatorSession(Paths.ConfigPath, Logger);
             jobHelper = new JobHelperButton(delegate { return calculatorEnabled.Value; }, OpenJobCalculator,
@@ -130,6 +132,7 @@ namespace PCBSCalculatorHelper
                 purchaseByClick.Install(harmony);
                 workbench.Install(harmony);
                 inventorySorting.Install(harmony);
+                shopEnhancements.Install(harmony);
                 Logger.LogInfo("Installed workbench automation and inventory sorting hooks.");
                 tweaker.Apply();
                 Logger.LogInfo("Installed input guards. Press " + hotkey.Value + " to open the offline calculator.");
@@ -367,6 +370,7 @@ namespace PCBSCalculatorHelper
             PollHotkey();
             workbench.Update();
             inventorySorting.Update();
+            shopEnhancements.Update();
             if (browser != null && pageLoaded && Time.unscaledTime >= nextCareerSync)
             {
                 nextCareerSync = Time.unscaledTime + 1;
@@ -628,6 +632,7 @@ namespace PCBSCalculatorHelper
             if (purchaseByClick != null) purchaseByClick.Dispose();
             if (workbench != null) workbench.Dispose();
             if (inventorySorting != null) inventorySorting.Dispose();
+            if (shopEnhancements != null) shopEnhancements.Dispose();
             calculatorTheme.Dispose();
             calculatorPlacement.CancelDrag();
             if (harmony != null) harmony.UnpatchSelf();

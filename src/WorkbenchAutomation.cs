@@ -37,7 +37,7 @@ namespace PCBSCalculatorHelper
             ThermalPaste = config.Bind("Workbench", "AutoThermalPaste", false,
                 "Apply thermal paste when installing a CPU; reapply when installing a CPU air cooler, AIO or water block.");
             RemoveDependencies = config.Bind("Workbench", "RemoveDependencies", false,
-                "Hold left mouse on a blocked part to remove its dependencies with normal animations. Release to pause; Esc cancels.");
+                "Hold left mouse to clear dependencies for removal or installation. After installation, restore removed parts where possible, except PCI covers. Release to pause; Esc cancels.");
             CableColour = config.Bind("Workbench", "ReplaceCableColour", false,
                 "Selecting a cable in a PC's inventory replaces connected player-customizable cables with that style.");
             removal = new DependencyRemoval(this);
@@ -58,6 +58,8 @@ namespace PCBSCalculatorHelper
             Hook(harmony, typeof(InstallingPartState), "DoScrewsStep", "BeforeScrews", null);
             Hook(harmony, typeof(InstallingPartState), "HandleExit", "BeforeInstallExit", null);
             Hook(harmony, typeof(WorkingOnComputerState), "DisassemblyTick", "BeforeDisassembly", null);
+            Hook(harmony, typeof(WorkingOnComputerState), "AssemblyTick", "BeforeAssembly", null);
+            Hook(harmony, typeof(WorkingOnComputerState), "OnStateEnter", "BeforeWorkEntered", null);
             Hook(harmony, typeof(WorkingOnComputerState), "HandleInput", "BeforeWorkInput", null);
             Hook(harmony, typeof(WorkingOnComputerState), "HandleExit", "BeforeWorkExit", null);
             Hook(harmony, typeof(CableInstance), "Update", "BeforeCableAnimation", null);
@@ -78,6 +80,7 @@ namespace PCBSCalculatorHelper
 
         private static void OnInstallEntered(InstallingPartState __instance)
         {
+            if (instance != null) instance.removal.OnInstallEntered(__instance);
             if (instance == null || !instance.ThermalPaste.Value || (float)InstallDirection.GetValue(__instance) <= 0) return;
             try
             {
@@ -110,13 +113,26 @@ namespace PCBSCalculatorHelper
             if (instance == null || !instance.RemoveDependencies.Value || !Held || !PCBSInput.m_action.IsDown() ||
                 (WorkingOnComputerState.Mode)WorkMode.GetValue(__instance) != WorkingOnComputerState.Mode.DISASSEMBLY) return true;
             try { return !instance.removal.Begin(__instance, Selected.GetValue(__instance) as ComponentPC); }
-            catch (Exception ex) { instance.removal.Cancel(); instance.Warn("Dependency removal", ex); return true; }
+            catch (Exception ex) { instance.DependencyFailure(ex); return true; }
+        }
+        private static bool BeforeAssembly(WorkingOnComputerState __instance)
+        {
+            if (instance == null || !instance.RemoveDependencies.Value || !Held || !PCBSInput.m_action.IsDown() ||
+                (WorkingOnComputerState.Mode)WorkMode.GetValue(__instance) != WorkingOnComputerState.Mode.ASSEMBLY) return true;
+            try { return !instance.removal.BeginInstall(__instance, Selected.GetValue(__instance) as ComponentPC); }
+            catch (Exception ex) { instance.DependencyFailure(ex, true); return true; }
+        }
+        private static void BeforeWorkEntered(WorkingOnComputerState __instance)
+        {
+            if (instance == null) return;
+            try { instance.removal.BeforeWorkEntered(__instance); }
+            catch (Exception ex) { instance.DependencyFailure(ex); }
         }
         private static bool BeforeWorkInput(WorkingOnComputerState __instance)
         {
             if (instance == null) return true;
             try { return instance.removal.WorkTick(__instance); }
-            catch (Exception ex) { instance.removal.Cancel(); instance.Warn("Dependency removal", ex); return true; }
+            catch (Exception ex) { instance.DependencyFailure(ex); return true; }
         }
         private static bool BeforeInstallTick(InstallingPartState __instance)
         { return instance == null || !instance.removal.Owns(__instance) || Held; }
@@ -130,7 +146,7 @@ namespace PCBSCalculatorHelper
             float speed = WorkbenchRules.ScrewSpeed(screw.m_isStandOff, (bool)AutoBuild.GetValue(__instance),
                 (bool)AutoStandOff.GetValue(__instance), (bool)OneClickScrew.GetValue(__instance));
             screw.SetOutline(cakeslice.CustomOutline.REMOVABLE);
-            if (screw.Tighten(-Time.deltaTime * speed))
+            if (screw.Tighten((float)InstallDirection.GetValue(__instance) * Time.deltaTime * speed))
             { __0.RemoveAt(0); __1.Add(screw); screw.SetOutline(cakeslice.CustomOutline.OFF); }
             return __0.Count == 0; // Native code performs the transition to the next animation.
         }
@@ -139,7 +155,10 @@ namespace PCBSCalculatorHelper
         private static bool BeforeWorkExit(WorkingOnComputerState __instance, ref bool __result)
         {
             if (instance == null || !instance.removal.Owns(__instance)) return true;
-            instance.removal.Cancel(); __result = true; return false;
+            bool nativeCombo = instance.removal.NativeComboPending;
+            instance.removal.Cancel();
+            if (nativeCombo) return true;
+            __result = true; return false;
         }
         private static bool BeforeCableAnimation(CableInstance __instance)
         { return instance == null || !instance.removal.Owns(__instance) || Held; }
@@ -173,15 +192,24 @@ namespace PCBSCalculatorHelper
         internal void Update()
         {
             try { removal.CheckContext(); }
-            catch (Exception ex) { removal.Cancel(); Warn("Workbench helper", ex); }
+            catch (Exception ex) { DependencyFailure(ex); }
         }
-        internal void Notify(string english) { notice = english; noticeUntil = Time.unscaledTime + 4; }
+        private void DependencyFailure(Exception ex, bool silent = false)
+        {
+            silent = silent || removal.InstallationActive;
+            removal.Cancel();
+            log.LogWarning("Workbench helper: " + ex);
+            if (!silent) Notify("Workbench action stopped. See the helper log.");
+        }
+        internal void Notify(string english)
+        { if (!removal.InstallationActive) { notice = english; noticeUntil = Time.unscaledTime + 4; } }
         internal void LogRemoval(string message) { log.LogInfo("Dependency removal: " + message); }
         internal void LogRemovalBlocked(string target, List<string> trace)
         { log.LogWarning("Dependency removal stopped for " + target + "\n  " + String.Join("\n  ", trace.ToArray())); }
         internal void Warn(string action, Exception ex) { log.LogWarning(action + ": " + ex); Notify("Workbench action stopped. See the helper log."); }
         internal void DrawNotice()
         {
+            if (removal.InstallationActive) return;
             string text = removal.Active ? "Hold LMB to remove dependencies • release to pause • Esc to cancel" :
                 Time.unscaledTime < noticeUntil ? notice : null;
             if (text == null) return;

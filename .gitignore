@@ -1,5 +1,7 @@
 # Сборки, пакеты релиза, скачанные зависимости и тестовые данные
 /build/
+/dist/
+/artifacts/
 bin/
 obj/
 node_modules/
@@ -12,6 +14,8 @@ node_modules/
 *.zip
 *.7z
 *.rar
+*.nupkg
+*.snupkg
 
 # Локальный путь к игре и настройки окружения
 /build.local.json
@@ -22,6 +26,8 @@ node_modules/
 
 # Локальные данные инструментов разработки
 .serena/
+.venv/
+venv/
 
 # Исторические локальные файлы прежнего калькулятора не включаются в репозиторий
 # Текущий собственный калькулятор находится в assets/helper-calculator*
@@ -46,10 +52,21 @@ __pycache__/
 *.pyo
 .cache/
 .pytest_cache/
+.ruff_cache/
+*.tsbuildinfo
+*.dmp
+*.stackdump
 
 # Отчёты покрытия тестов
 /coverage/
 .nyc_output/
+/TestResults/
+/test-results/
+/playwright-report/
+
+# Локальные скриншоты и записи проверок. Материалы гайда в docs/images отслеживаются.
+/screenshots/
+/recordings/
 
 # Личные файлы редакторов
 .vs/

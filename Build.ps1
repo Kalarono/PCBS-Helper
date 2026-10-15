@@ -60,6 +60,11 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw 'Workbench behavior tests could not compile.' }
     & $workbenchRulesTests
     if ($LASTEXITCODE -ne 0) { throw 'Workbench behavior tests failed.' }
+    $dependencyTests = Join-Path $buildPath 'DependencyInstallationTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$dependencyTests" (Join-Path $projectPath 'src\DependencyRemoval.cs') (Join-Path $projectPath 'src\DependencyOrder.cs') (Join-Path $projectPath 'src\WorkbenchRules.cs') (Join-Path $projectPath 'tests\DependencyGameStubs.cs') (Join-Path $projectPath 'tests\DependencyInstallationTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Dependency installation tests could not compile.' }
+    & $dependencyTests
+    if ($LASTEXITCODE -ne 0) { throw 'Dependency installation tests failed.' }
     $workbenchContractTests = Join-Path $buildPath 'WorkbenchGameContractTests.exe'
     $cecilPath = Join-Path $GamePath 'BepInEx\core\Mono.Cecil.dll'
     Copy-Item -LiteralPath $cecilPath -Destination $buildPath -Force
@@ -117,6 +122,16 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw 'Native localization tests could not compile.' }
     & $localizationTestExe
     if ($LASTEXITCODE -ne 0) { throw 'Native localization tests failed.' }
+    $shopTests = Join-Path $buildPath 'ShopEnhancementsTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$shopTests" "/reference:$(Join-Path $GamePath 'BepInEx\core\BepInEx.dll')" "/reference:$(Join-Path $managedPath 'Assembly-CSharp-firstpass.dll')" "/reference:$(Join-Path $managedPath 'UnityEngine.CoreModule.dll')" (Join-Path $projectPath 'src\ShopStockCounts.cs') (Join-Path $projectPath 'src\ShopSortSettings.cs') (Join-Path $projectPath 'tests\ShopEnhancementsTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Shop enhancement tests could not compile.' }
+    & $shopTests $GamePath
+    if ($LASTEXITCODE -ne 0) { throw 'Shop enhancement tests failed.' }
+    $shopContractTests = Join-Path $buildPath 'ShopGameContractTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$shopContractTests" "/reference:$cecilPath" (Join-Path $projectPath 'tests\ShopGameContractTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Shop API tests could not compile.' }
+    & $shopContractTests $managedPath (Join-Path $packagePath 'PCBS-Helper.dll')
+    if ($LASTEXITCODE -ne 0) { throw 'Shop API tests failed.' }
     $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
     if ($nodeCommand) {
         & $nodeCommand.Source (Join-Path $projectPath 'tests\CalculatorStateTests.js')

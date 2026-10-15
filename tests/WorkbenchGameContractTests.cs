@@ -25,6 +25,9 @@ internal static class WorkbenchGameContractTests
         {
             TypeDefinition work = Type(game, "WorkingOnComputerState");
             Method(work, "HandleInput"); Method(work, "DisassemblyTick"); Method(work, "SetDisassemblyMode"); Method(work, "HandleExit");
+            Method(work, "AssemblyTick"); Method(work, "OnStateEnter"); Method(work, "ClearPlaceholders");
+            Method(work, "SetAssemblyMode"); Method(work, "PopulatePlaceholders", "Slot[]"); Method(work, "TickPopulatePlaceholders");
+            Field(work, "m_pendingSlotsForPlaceholders", "System.Collections.Generic.List`1<Slot>");
             Field(work, "m_mode", "WorkingOnComputerState/Mode");
             TypeDefinition basis = Type(game, "WorkingOnComputerStateBase");
             Field(basis, "m_case", "Case"); Field(basis, "m_camera", "UnityEngine.Camera"); Field(basis, "m_selected", "ISelectable");
@@ -54,6 +57,8 @@ internal static class WorkbenchGameContractTests
             Field(component, "m_proxy", "ComponentPC"); Field(component, "subslots", "Slot[]"); Method(component, "CanBeUninstalled");
             TypeDefinition slot = Type(game, "Slot");
             Field(slot, "m_dynamicBlockedBy", "System.Collections.Generic.List`1<ComponentPC>");
+            Field(slot, "m_dynamicComponentCollidesWith", "System.Collections.Generic.List`1<ComponentPC>");
+            Method(slot, "CanFillWithCurrentItem"); Method(slot, "get_blocked");
             Method(slot, "CurrentBlockers", "System.Boolean", "System.Boolean");
             MethodDefinition aioPlacement = Method(slot, "HandleRadiator", "ComponentPC", "Radiator", "System.Boolean");
             Check(aioPlacement.Body.Instructions.Any(x => x.Operand is MethodReference && ((MethodReference)x.Operand).Name == "SetProxy"),
@@ -116,6 +121,8 @@ internal static class WorkbenchGameContractTests
             Check(ready.Body.Instructions.Any(x => x.Operand is MethodReference && ((MethodReference)x.Operand).Name == "IsPinBlocked"),
                 "Latch readiness must respect the native socket blocker check before toggling.");
             TypeDefinition automation = helper.Types.First(x => x.Name == "WorkbenchAutomation");
+            Method(automation, "BeforeAssembly", "WorkingOnComputerState");
+            Method(automation, "BeforeWorkEntered", "WorkingOnComputerState");
             Method(automation, "AfterPinAnimation", "CPin", "System.Collections.IEnumerator&");
             Method(automation, "BeforeSocketAnimation", "LGASlot");
             MethodDefinition paste = Method(automation, "OnInstallEntered", "InstallingPartState");

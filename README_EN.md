@@ -2,7 +2,7 @@
 
 [Русский](README.md) | **English**
 
-**An in-game helper for PC Building Simulator 1 on Windows. Version 1.0.1.**
+**An in-game helper for PC Building Simulator 1 on Windows. Version 1.0.2.**
 Tested with game version **1.15.3**. Not compatible with PC Building Simulator 2.
 
 Convenience settings, a **Build Helper** and a **Will it Run? Helper**, all
@@ -11,9 +11,14 @@ Russian or English, with English used for other languages.
 Both helpers are embedded in the DLL; no separate application is needed.
 
 This README includes installation instructions and a **step-by-step guide
-with 13 GIF demonstrations**:
+with 13 GIF demonstrations and a screenshot of the new shop features**:
 [F1 settings](#f1) · [F2 Build Helper](#f2) · [F3 Will it Run?](#f3) ·
-[new features in 1.0.1](#v101).
+[new in 1.0.2](#v102) · [feature demonstrations from 1.0.1](#v101).
+
+**1.0.2** adds the Soft rows F1 design, persistent shop sorting, colored
+inventory condition counters and scrolling specifications inside shop cards.
+Dependency removal now also assists installation and restores removed parts
+where possible afterward. [Full changelog, in Russian](CHANGELOG.md).
 
 ## Download and install
 
@@ -22,7 +27,7 @@ Choose one of the two installation methods on the
 
 ### Full archive — the easiest option
 
-1. **Close the game** and download **PCBS-Helper-1.0.1-Full.zip**.
+1. **Close the game** and download **PCBS-Helper-Full.zip**.
    The archive includes BepInEx 5 x64 and the helper.
 2. In your Steam library, right-click PC Building Simulator →
    **Manage → Browse local files**.
@@ -73,6 +78,10 @@ Closing the F1 window keeps your selected settings.
 <a id="f1"></a>
 
 ### F1 — convenience settings
+
+The **Soft rows** design shows a checkbox on the left and **ON / OFF** on
+the right. Click anywhere on a row to change its setting. All features
+remain in one list; drag the header to move the window.
 
 New workbench options: **Automatic thermal paste**, **Remove dependencies
 while holding LMB**, and **Replace all customizable cables**. Enable each
@@ -314,6 +323,15 @@ compatible with the chosen PC's socket, case and power supply.
 4. Release **LMB** to pause. Hold it again to resume.
    Press **Esc** to cancel the queue.
 
+Since **1.0.2**, this also works during **installation**: select a part in the inventory,
+point at its blocked placement preview and hold **LMB**. The helper removes
+obstructing parts, opens required clips and installs the selected part.
+It then attempts to restore removed parts to their original slots in reverse
+order. PCI blanks stay removed; parts that no longer fit remain in inventory.
+Reconnect cables manually or with the game's auto-connect upgrade.
+Hold, pause and cancel also apply during restoration.
+The helper's bottom notices are hidden for installation operations.
+
 The example removes a motherboard after clearing its dependencies.
 Drain full water-cooling loops manually first. The helper displays a message
 if a dependency needs manual removal.
@@ -333,6 +351,57 @@ job objective. Fixed cables on non-modular power supplies and cooling
 components are skipped.
 
 ![Selecting flexible red cables and replacing eligible connected cables in bulk](docs/images/guide/13_replace_customizable_cables.gif)
+
+<a id="v102"></a>
+
+### New in 1.0.2
+
+#### 14. Shop improvements
+
+- **Sort by** is remembered between game launches separately for each shop
+  in the helper's config.
+- Models held in inventory show compact icons with quantities below their
+  specifications: **green circle — new, yellow diamond — used, red cross —
+  broken**. Hover for a text legend. Toggle **Shop inventory counters** in
+  **F1**, above Automatic thermal paste. Counts include parts in inventory;
+  installed parts and orders awaiting delivery are not included.
+  Counters are hidden for Cables, Tools & Software, all peripherals (keyboards,
+  mice, mouse pads, headsets, monitors and microphones), and the water-cooling
+  shop's Coolant, Connectors and Tubing categories. This also applies to search
+  results and product pages; the native purchase button indicates ownership.
+  Other water-cooling components retain their counters.
+- Long specifications scroll with the mouse wheel inside the card, with a
+  thin scrollbar on the right. Scrolling beyond either end continues through
+  the main catalog in that direction.
+
+Counters default to on and remember their F1 setting. Other shop improvements
+are automatic. Updating the helper DLL is
+sufficient; the game's files are not modified.
+
+![Refreshed F1 interface, scrolling specifications and colored shop inventory counters](docs/images/guide/14_shop_stock_and_scroll.png)
+
+The screenshot shows the refreshed Soft rows F1 interface, specification
+scrollbars and the counters below the cards.
+Hovering over a counter displays a text legend with each condition and quantity.
+
+#### Installation and restoring dependencies
+
+Enable **Remove dependencies while holding LMB** in F1, choose a part in
+inventory and hold LMB on its blocked placement preview. The helper clears
+obstructions, opens required clips and installs the part. It then tries to
+restore removed parts to their original slots in reverse order. PCI blanks
+stay removed; parts that no longer fit remain in inventory. Reconnect cables
+manually or with the game's auto-connect upgrade. Release LMB to pause;
+Esc cancels the queue. The helper shows no bottom notices for installation.
+Drain full water-cooling loops manually first.
+
+#### Refreshed F1 design
+
+Soft rows keeps every setting in one list. Each row has a checkbox on the
+left and an ON/OFF status on the right, with a lilac accent for enabled
+features. Click anywhere on the row to toggle it. Long labels wrap and
+increase the row height. F2/F3 remain at the bottom, with their hotkeys
+shown alongside. Window dragging and saved settings work as before.
 
 ## Update and uninstall
 

@@ -24,6 +24,7 @@ internal static class HelperLocalizationTests
             "Подберите сочетание деталей вручную с учётом нужного количества.", "Multi-part brand goals explain manual combination selection.");
         Check(HelperLocalization.Text("Could not read the job clarifications. Check the order email.") == "Не удалось прочитать уточнения заказа. Проверьте письмо клиента.", "Missing job data must have a readable localized message.");
         Check(HelperLocalization.Text("Install All Apps") == "Устанавливать все приложения", "Tweaker settings are localized.");
+        Check(HelperLocalization.Text("Shop inventory counters") == "Наличие деталей в магазине", "The F1 shop counter toggle is localized.");
         Check(HelperLocalization.Text("A dependency needs manual removal.") == "Зависимость требует ручного снятия.", "Unknown dependencies must not falsely report a water loop.");
         Check(HelperLocalization.Text("Dependency removal stopped. See BepInEx/LogOutput.log.") == "Автоснятие остановлено. Причина в BepInEx/LogOutput.log.", "Stopped queues point to the log containing the visited dependency chain.");
         Check(HelperLocalization.Text("Empty the full water loop before removing this dependency.") == "Перед снятием этой зависимости нужно слить заполненный водяной контур.", "Actual full water loops have a separate localized explanation.");

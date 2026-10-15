@@ -1,4 +1,4 @@
-PCBS-Helper 1.0.1
+﻿PCBS-Helper 1.0.2
 An in-game helper for PC Building Simulator 1 on Windows
 
 Tested with game version 1.15.3. Not compatible with PC Building Simulator 2.
@@ -7,9 +7,24 @@ The interface follows the game's language: Russian or English.
 Other game languages use the English helper interface.
 For instructions in Russian, see README.txt.
 
+NEW IN 1.0.2
+
+  - Compact F1 with the Soft Rows design and all features in one list.
+  - The shop remembers the selected sort order between game sessions.
+  - A green circle, yellow diamond and red cross show new, used and broken
+    inventory counts. Toggle them in F1 above thermal paste. Counters are
+    hidden for Cables, Tools & Software, peripherals, Coolant, Connectors
+    and Tubing.
+  - Long card specifications scroll using the wheel or scrollbar.
+  - Holding LMB also clears dependencies during installation, then tries
+    to restore removed parts except PCI blanks. No bottom notices appear.
+
+To update, close the game and replace PCBS-Helper.dll in the plugin folder.
+Settings, panel positions and calculator data are preserved.
+
 RELEASE FILES
 
-  PCBS-Helper-1.0.1-Full.zip   - BepInEx and the helper in one archive.
+  PCBS-Helper-Full.zip   - BepInEx and the helper in one archive.
   BepInEx_win_x64_5.4.23.5.zip - The mod loader for Windows x64.
   PCBS-Helper.dll             - The helper plugin.
   README_EN.txt              - These instructions in English.
@@ -26,7 +41,7 @@ QUICK INSTALLATION FROM THE FULL ARCHIVE
    PC Building Simulator -> Manage -> Browse local files.
    This folder should contain PCBS.exe and the PCBS_Data folder.
 
-2. Extract the CONTENTS of PCBS-Helper-1.0.1-Full.zip directly into
+2. Extract the CONTENTS of PCBS-Helper-Full.zip directly into
    this folder. winhttp.dll, doorstop_config.ini and the BepInEx folder
    should be next to PCBS.exe. Do not create an extra folder for the ZIP.
    The helper is already included in BepInEx\plugins\PCBS-Helper.
@@ -93,6 +108,14 @@ required cables, covers and parts in sequence with normal animation and
 screw speed. Release to pause, hold again to resume; Esc cancels the queue.
 Empty full water-cooling loops manually first.
 
+During installation, select a part and hold LMB on its blocked placement
+preview. The helper clears obstructions, opens clips, installs the part,
+then tries to restore removed parts to their original slots in reverse
+order. PCI blanks stay removed. Parts that cannot return remain in inventory.
+Reconnect cables manually or with the game's auto-connect upgrade.
+Pause and Esc also apply during restoration. The helper shows no bottom
+notices for this operation.
+
 Thermal paste is applied when installing a CPU and reapplied during cooler
 installation if missing, including AIO coolers mounted in a case slot.
 
@@ -102,6 +125,23 @@ are skipped. Inventory buttons sort by the resale price shown on item cards
 or by arrival order, in either direction. The selection is saved. Sorting
 is enabled by default, newest arrivals first. The game stores insertion
 order rather than calendar timestamps.
+
+SHOP
+
+Sort by is remembered between launches separately for each shop. Models in
+inventory show quantities with a green circle (new), yellow diamond (used)
+and red cross (broken). Hover for a text legend. F1 → Shop inventory counters,
+above Automatic thermal paste, toggles the counters and remembers the choice.
+Installed parts and undelivered orders are excluded.
+Counters are hidden for Cables, Tools & Software, all peripherals (keyboards,
+mice, mouse pads, headsets, monitors and microphones), and the water-cooling
+shop's Coolant, Connectors and Tubing categories. This also applies to search
+results and product pages; the native purchase button indicates ownership.
+Other water-cooling components retain their counters.
+Long specifications scroll with the mouse wheel inside each card.
+At either edge, scrolling continues through the catalog.
+Counters default to on; other shop improvements are automatic. All are in the helper DLL;
+the game's files are not modified.
 
 BUILD HELPER (F2)
 

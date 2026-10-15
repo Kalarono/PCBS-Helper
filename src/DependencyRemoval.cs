@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -15,12 +16,21 @@ namespace PCBSCalculatorHelper
         private Case pc;
         private CableInstance cable;
         private CPin pin;
+        private PendingPart placement;
+        private bool placing, restoring;
+        private readonly List<PendingPart> removed = new List<PendingPart>();
         private bool fullLoopBlocks;
         private readonly List<string> planTrace = new List<string>();
         private readonly RemovalHold hold = new RemovalHold();
         private static readonly FieldInfo Proxy = AccessTools.Field(typeof(ComponentPC), "m_proxy");
         private static readonly FieldInfo Subslots = AccessTools.Field(typeof(ComponentPC), "subslots");
         private static readonly FieldInfo DynamicBlockers = AccessTools.Field(typeof(Slot), "m_dynamicBlockedBy");
+        private static readonly FieldInfo CollisionBlockers = AccessTools.Field(typeof(Slot), "m_dynamicComponentCollidesWith");
+        private static readonly FieldInfo PendingPreviews = AccessTools.Field(typeof(WorkingOnComputerState), "m_pendingSlotsForPlaceholders");
+        private static readonly MethodInfo ClearPreviews = AccessTools.Method(typeof(WorkingOnComputerState), "ClearPlaceholders");
+        private static readonly MethodInfo PopulatePreviews = AccessTools.Method(typeof(WorkingOnComputerState), "PopulatePlaceholders");
+        private static readonly MethodInfo TickPreviews = AccessTools.Method(typeof(WorkingOnComputerState), "TickPopulatePlaceholders");
+        private static readonly MethodInfo AssemblyMode = AccessTools.Method(typeof(WorkingOnComputerState), "SetAssemblyMode");
         private static readonly MethodInfo PinBlocked = AccessTools.Method(typeof(Pin), "IsBlocked");
         private static readonly MethodInfo AmdSocketBlocked = AccessTools.Method(typeof(AM3Slot), "IsBlocked");
         private static readonly MethodInfo IntelSocketBlocked = AccessTools.Method(typeof(LGASlot), "IsBlocked");
@@ -29,6 +39,8 @@ namespace PCBSCalculatorHelper
 
         internal DependencyRemoval(WorkbenchAutomation owner) { this.owner = owner; }
         internal bool Active { get { return work != null; } }
+        internal bool InstallationActive { get { return Active && placement != null; } }
+        internal bool NativeComboPending { get { return InstallationActive && placing; } }
         internal bool Owns(WorkingOnComputerState state) { return work == state; }
         internal bool Owns(InstallingPartState state) { return installing == state; }
         internal bool Owns(CableInstance item) { return cable != null && cable == item; }
@@ -44,6 +56,72 @@ namespace PCBSCalculatorHelper
             return pc != null;
         }
 
+        internal bool BeginInstall(WorkingOnComputerState state, ComponentPC preview)
+        {
+            GameController ctrl = GameController.Get();
+            Slot slot = preview == null ? null : preview.transform.parent.GetComponent<Slot>();
+            if (preview == null || !preview.m_isPlaceholder || slot == null || ctrl.selectedItem == null ||
+                !slot.CanFillWithCurrentItem() || !slot.blocked) return false;
+            Cancel(); work = state;
+            pc = WorkbenchAutomation.WorkCase.GetValue(state) as Case;
+            if (pc == null) { Cancel(); return false; }
+            placement = new PendingPart(slot, ctrl.selectedItem);
+            owner.LogRemoval("Preparing installation: " + Describe(slot) + " [" + placement.Part.GetPartId() + "]");
+            return true;
+        }
+
+        // The game re-enters this same work state after each native installation
+        // or removal. Restore the selected item before it regenerates previews.
+        internal void BeforeWorkEntered(WorkingOnComputerState state)
+        {
+            if (!Owns(state) || !InstallationActive) return;
+            installing = null;
+            GameController ctrl = GameController.Get();
+            if (placing)
+            {
+                // Let native multi-part installations (e.g. AIOs) finish first.
+                if (ctrl.LastComponentInstalled != null && !String.IsNullOrEmpty(ctrl.LastComponentInstalled.NextPartIdInCombo)) return;
+                placing = false; restoring = true;
+                if (!NextRestore()) { Cancel(); return; }
+                ctrl.LastComponentInstalled = null;
+            }
+            ctrl.NextComponentToUninstall = null;
+            ctrl.selectedItem = placement.Part;
+        }
+
+        internal void OnInstallEntered(InstallingPartState state)
+        {
+            if (InstallationActive && placing && (WorkbenchAutomation.WorkCase.GetValue(state) as Case) == pc)
+                installing = state;
+        }
+
+        private bool NextRestore()
+        {
+            while (removed.Count > 0)
+            {
+                placement = removed[removed.Count - 1];
+                removed.RemoveAt(removed.Count - 1);
+                if (placement.Slot != null) return true;
+                owner.LogRemoval("Cannot restore: destination no longer exists [" + placement.Part.GetPartId() + "]");
+            }
+            return false;
+        }
+
+        private void SkipRestore()
+        {
+            owner.LogRemoval("Cannot restore: " + Describe(placement.Slot) + " [" + placement.Part.GetPartId() + "]");
+            ClearPreviews.Invoke(work, null);
+            if (!NextRestore())
+            {
+                WorkingOnComputerState workState = work;
+                GameController.Get().selectedItem = null;
+                Cancel(); DisassemblyMode.Invoke(workState, null); return;
+            }
+            GameController.Get().selectedItem = placement.Part;
+            AssemblyMode.Invoke(work, null);
+            PopulatePreviews.Invoke(work, new object[] { new[] { placement.Slot } });
+        }
+
         internal void CheckContext()
         {
             if (!Active) return;
@@ -55,28 +133,61 @@ namespace PCBSCalculatorHelper
         internal bool WorkTick(WorkingOnComputerState state)
         {
             if (!Owns(state)) return true;
-            if (PCBSInput.m_assemblyMode.IsDown() || PCBSInput.m_cablingMode.IsDown() || PCBSInput.m_pipingMode.IsDown() ||
+            if (PCBSInput.m_assemblyMode.IsDown() || PCBSInput.m_disassemblyMode.IsDown() || PCBSInput.m_cablingMode.IsDown() || PCBSInput.m_pipingMode.IsDown() ||
                 PCBSInput.m_inventory.IsDown()) { Cancel(); return true; }
             if (!owner.RemoveDependencies.Value) { Cancel(); return true; }
-            if (target == null || target.m_isPlaceholder) { Cancel(); owner.Notify("Dependency removal complete."); return false; }
+            if (InstallationActive)
+            {
+                WorkingOnComputerState.Mode mode = (WorkingOnComputerState.Mode)WorkbenchAutomation.WorkMode.GetValue(state);
+                if (mode != (placing ? WorkingOnComputerState.Mode.COMBO_ASSEMBLY : WorkingOnComputerState.Mode.ASSEMBLY))
+                { Cancel(); return true; }
+                if (placing) return WorkbenchAutomation.Held; // Native combo continuation.
+                if (placement.Slot == null || GameController.Get().selectedItem != placement.Part)
+                { Cancel(); return true; }
+                // Pin animations and native removals can destroy/recreate previews.
+                if (((IList)PendingPreviews.GetValue(work)).Count > 0)
+                { TickPreviews.Invoke(work, null); return false; }
+            }
+            else if (target == null || target.m_isPlaceholder) { Cancel(); owner.Notify("Dependency removal complete."); return false; }
             if (!hold.Advance(WorkbenchAutomation.Held, Time.deltaTime)) return false;
             if (cable != null) return false;
             if (pin != null && pin.IsAnimating()) return false;
             if (pin != null) pin = null;
             fullLoopBlocks = false;
             planTrace.Clear();
-            Node next = DependencyOrder.Next(new Node(target), Ready, Blockers, new NodeComparer());
+            if (InstallationActive && !HasPlacementPreview())
+            {
+                if (restoring) SkipRestore(); else Stop();
+                return false;
+            }
+            Node next = DependencyOrder.Next(new Node(InstallationActive ? (UnityEngine.Object)placement.Slot : target), Ready, Blockers, new NodeComparer());
             if (next == null)
             {
-                Stop(); return false;
+                if (restoring) SkipRestore(); else Stop();
+                return false;
             }
             owner.LogRemoval("Next: " + Describe(next.Item) + (next.Item is CPin ? (next.Open ? " [open]" : " [close]") : ""));
-            if (next.Item is ComponentPC)
+            if (next.Item is Slot)
+            {
+                // Use the game's constructor only after its live slot check passes.
+                if (!HasPlacementPreview() || placement.Slot.blocked) return false;
+                ClearPreviews.Invoke(work, null);
+                GameController ctrl = GameController.Get();
+                ctrl.LastComponentInstalled = null;
+                ctrl.NextComponentToUninstall = null;
+                ctrl.UninstalledSlots.Clear();
+                placing = true;
+                installing = new InstallingPartState(pc, (Camera)WorkbenchAutomation.WorkCamera.GetValue(state), placement.Part, placement.Slot);
+                ctrl.SetCurrentState(installing);
+            }
+            else if (next.Item is ComponentPC)
             {
                 ComponentPC component = (ComponentPC)next.Item;
                 // The native check is authoritative, even after planning the step.
                 if (!component.CanBeUninstalled()) return false;
                 component = component.LastComponentInCombo;
+                if (InstallationActive && component.PreviousComponentInCombo == null && component.Slot.m_slotType != Slot.SlotType.PCI_COVER)
+                    removed.Add(new PendingPart(component.Slot, component.GetPartInstance()));
                 pc.OnChangePart(component.gameObject);
                 installing = InstallingPartState.UninstallState(pc,
                     (Camera)WorkbenchAutomation.WorkCamera.GetValue(state), component);
@@ -108,16 +219,19 @@ namespace PCBSCalculatorHelper
 
         private bool Ready(Node node)
         {
+            Slot slot = node.Item as Slot;
+            if (slot != null) return HasPlacementPreview() && !slot.blocked;
             ComponentPC component = node.Item as ComponentPC;
             if (component != null)
             {
+                if (restoring || IsPlacementParent(component)) return false;
                 if (component.m_loop != null && component.m_loop.IsFull()) fullLoopBlocks = true;
                 bool ready = !component.m_isPlaceholder && component.CanBeUninstalled();
                 Trace(Describe(component) + " removable=" + ready + " fullLoop=" + (component.m_loop != null && component.m_loop.IsFull()));
                 return ready;
             }
             CableInstance wire = node.Item as CableInstance;
-            if (wire != null) return !wire.Uninstalling && wire.m_start != null && wire.m_end != null;
+            if (wire != null) return !restoring && !wire.Uninstalling && wire.m_start != null && wire.m_end != null;
             CPin latch = node.Item as CPin;
             if (latch != null)
             {
@@ -127,7 +241,7 @@ namespace PCBSCalculatorHelper
                 return !latch.IsAnimating() && latch.IsOpen() != node.Open && !blocked;
             }
             WaterPipe pipe = node.Item as WaterPipe;
-            if (pipe == null) return false;
+            if (pipe == null || restoring) return false;
             bool full = FullLoop(pipe.m_from) || FullLoop(pipe.m_to);
             if (full) fullLoopBlocks = true;
             return !full;
@@ -135,6 +249,12 @@ namespace PCBSCalculatorHelper
 
         private IEnumerable<Node> Blockers(Node node)
         {
+            Slot destination = node.Item as Slot;
+            if (destination != null)
+            {
+                foreach (Node dependency in SlotBlockers(destination, true)) yield return dependency;
+                yield break;
+            }
             // RAMSlot is a compound CBlocker, not a Slot or a CPin.
             // Its two clips must both open before the RAM can be removed.
             RAMSlot ram = node.Item as RAMSlot;
@@ -149,23 +269,15 @@ namespace PCBSCalculatorHelper
             ComponentPC component = node.Item as ComponentPC;
             if (component != null)
             {
+                // Never remove the board/case containing the chosen destination,
+                // or remove the newly installed part merely to restore a cover.
+                if (restoring || IsPlacementParent(component)) yield break;
                 for (ComponentPC member = component.FirstComponentInCombo; member != null; member = member.NextComponentInCombo)
                 {
                     if (member.Slot != null)
                     {
-                        foreach (IBlocker blocker in member.Slot.CurrentBlockers(false))
-                        {
-                            Node dependency = FromBlocker(blocker, member.Slot);
-                            if (dependency != null && dependency.Item != component) yield return dependency;
-                        }
-                        member.Slot.IsUninstallingPathBlocked();
-                        List<ComponentPC> dynamic = DynamicBlockers.GetValue(member.Slot) as List<ComponentPC>;
-                        if (dynamic != null) foreach (ComponentPC other in dynamic)
-                        {
-                            ComponentPC normalized = Normalize(other);
-                            Trace("Path blocker for " + Describe(member.Slot) + ": " + Describe(normalized));
-                            if (normalized != null && normalized != component) yield return new Node(normalized);
-                        }
+                        foreach (Node dependency in SlotBlockers(member.Slot, false))
+                            if (dependency.Item != component) yield return dependency;
                     }
                     Slot[] children = Subslots.GetValue(member) as Slot[];
                     if (children != null) foreach (Slot slot in children)
@@ -210,6 +322,37 @@ namespace PCBSCalculatorHelper
             if (open != null) foreach (CBlocker blocker in open)
                 foreach (Pin other in blocker.GetComponentsInChildren<Pin>())
                     if (other.IsOpen()) yield return new Node(other, false);
+        }
+
+        private bool HasPlacementPreview()
+        {
+            if (placement == null || placement.Slot == null || !placement.Slot.CanFillWithCurrentItem()) return false;
+            ComponentPC preview = placement.Slot.GetComponent();
+            return preview != null && preview.m_isPlaceholder && preview.GetPartInstance().GetPartId() == placement.Part.GetPartId();
+        }
+
+        private bool IsPlacementParent(ComponentPC component)
+        { return placement != null && placement.Slot != null && placement.Slot.transform.IsChildOf(component.transform); }
+
+        private IEnumerable<Node> SlotBlockers(Slot slot, bool forInstallation)
+        {
+            foreach (IBlocker blocker in slot.CurrentBlockers(false))
+            {
+                Node dependency = FromBlocker(blocker, slot);
+                if (dependency != null) yield return dependency;
+            }
+            slot.IsUninstallingPathBlocked();
+            foreach (FieldInfo field in forInstallation ? new[] { DynamicBlockers, CollisionBlockers } : new[] { DynamicBlockers })
+            {
+                List<ComponentPC> blockers = field.GetValue(slot) as List<ComponentPC>;
+                if (blockers == null) continue;
+                foreach (ComponentPC other in blockers)
+                {
+                    ComponentPC normalized = Normalize(other);
+                    Trace("Geometry blocker for " + Describe(slot) + ": " + Describe(normalized));
+                    if (normalized != null && !normalized.m_isPlaceholder) yield return new Node(normalized);
+                }
+            }
         }
 
         private Node FromBlocker(IBlocker blocker, Slot slot)
@@ -260,10 +403,11 @@ namespace PCBSCalculatorHelper
 
         private void Stop()
         {
-            owner.LogRemovalBlocked(Describe(target), planTrace);
+            bool silent = InstallationActive;
+            owner.LogRemovalBlocked(Describe(silent ? (UnityEngine.Object)placement.Slot : target), planTrace);
             string reason = fullLoopBlocks ? "Empty the full water loop before removing this dependency." :
                 "Dependency removal stopped. See BepInEx/LogOutput.log.";
-            Cancel(); owner.Notify(reason);
+            Cancel(); if (!silent) owner.Notify(reason);
         }
 
         private static string Describe(UnityEngine.Object item)
@@ -293,12 +437,19 @@ namespace PCBSCalculatorHelper
             if (work != null && WorkbenchAutomation.StateNow == work)
             {
                 // Native AIO combo continuation must not run unattended after cancellation.
-                GameController.Get().NextComponentToUninstall = null;
-                DisassemblyMode.Invoke(work, null);
+                if (!placing) GameController.Get().NextComponentToUninstall = null;
+                if (!InstallationActive) DisassemblyMode.Invoke(work, null);
             }
             work = null; installing = null; target = null; pc = null; cable = null; pin = null;
+            placement = null; placing = false; restoring = false; removed.Clear();
             hold.Reset();
             fullLoopBlocks = false;
+        }
+        private sealed class PendingPart
+        {
+            internal readonly Slot Slot;
+            internal readonly PartInstance Part;
+            internal PendingPart(Slot slot, PartInstance part) { Slot = slot; Part = part; }
         }
         private sealed class Node
         {

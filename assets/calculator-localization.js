@@ -2,6 +2,12 @@
     'use strict';
     // Display text only. Part names, form values and saved calculation data remain canonical.
     var ru = {
+        'Target CPU Clock (MHz)': 'Цель CPU (МГц)', 'Target GPU Clock (MHz)': 'Цель GPU (МГц)',
+        'Enter a score or CPU / GPU clock target.': 'Укажите балл или целевую частоту CPU / GPU.',
+        'Targets must be whole non-negative numbers.': 'Цели должны быть целыми неотрицательными числами.',
+        'Set a score, clock targets, or both. CPU clocks use a 100 MHz base clock. Set voltage and test cooling / stability in the game; table watts exclude overclocking.': 'Укажите балл, целевые частоты или оба условия. Частоты CPU рассчитаны для базовой частоты 100 МГц. Напряжение, охлаждение и стабильность проверьте в игре; ватты в таблице указаны без разгона.',
+        'Job data imported. Find builds or upgrades, then review the remaining objectives below. Account for repairs, storage and cooling separately. Prices are for new parts.': 'Данные задания перенесены. Подберите сборку или апгрейд, затем проверьте остальные условия ниже. Ремонт, накопители и охлаждение нужно учесть отдельно. Цены указаны за новые детали.',
+        "Clock targets use the game's overclock limits without a silicon lottery bonus. Set the result clocks manually; CPU base clock is 100 MHz. Check voltage, cooling and stability in BIOS / GPU Tuner and OCCT. Table watts exclude overclocking.": 'Подбор учитывает частоты задания и пределы разгона из игры без бонуса удачного экземпляра. Частоты из результата выставьте вручную: для CPU используется базовая частота 100 МГц. Напряжение, охлаждение и стабильность проверьте в BIOS / GPU Tuner и OCCT. Ватты в таблице указаны без разгона.',
         'CPU Clock (MHz)': 'Частота CPU (МГц)', 'GPU Clock (MHz)': 'Частота GPU (МГц)',
         'GPU Memory Clock (MHz)': 'Частота памяти GPU (МГц)',
         'Load': 'Загрузить', 'Delete': 'Удалить', 'Part': 'Деталь',

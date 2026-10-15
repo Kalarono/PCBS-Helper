@@ -34,17 +34,22 @@
     function resultRows(page, value, expected) {
         var saved = tab(value);
         if (saved.columns.length) {
-            if (expected.some(function (name) { return saved.columns.indexOf(name) < 0; })) return [];
+            // Clock columns were added after 1.0.2. Keep previous results, leaving
+            // their unknown planned frequencies blank until the next calculation.
+            if (expected.some(function (name) { return saved.columns.indexOf(name) < 0 && name !== 'cpuMhz' && name !== 'gpuMhz'; })) return [];
             return saved.rows.filter(function (row) { return row.length === saved.columns.length; }).map(function (row) {
-                return expected.map(function (name) { return row[saved.columns.indexOf(name)]; });
+                return expected.map(function (name) { return row[saved.columns.indexOf(name)] || { text: '', css: name === 'cpuMhz' ? 'tdCpuMhz' : 'tdGpuMhz', save: false }; });
             });
         }
         // Legacy upgrade rows use GPU count / cooling. The first independent UI
         // temporarily used RAM MHz / GPU count with the same nine-column width.
-        if (page === 'divBuildUpgrader') return saved.rows.filter(function (row) { return row.length === 9; }).map(function (row) {
+        if (page === 'divBuildUpgrader') return saved.rows.filter(function (row) { return row.length === 9 || row.length === expected.length; }).map(function (row) {
             if (/^\d+$/.test(row[1].text) && Number(row[1].text) >= 100 && !/\btdGpuCount\b/.test(row[1].css))
-                return [row[0], row[2], { text: '', css: 'tdGpuType', save: false }].concat(row.slice(3));
-            return row;
+                row = [row[0], row[2], { text: '', css: 'tdGpuType', save: false }].concat(row.slice(3));
+            return row.length === 9 && expected.length === 11 ? row.concat([{ text: '', css: 'tdCpuMhz', save: false }, { text: '', css: 'tdGpuMhz', save: false }]) : row;
+        });
+        if (page === 'divBuildMaker' && expected.length === 16) return saved.rows.filter(function (row) { return row.length === 14 || row.length === 16; }).map(function (row) {
+            return row.length === 14 ? row.concat([{ text: '', css: 'tdCpuMhz', save: false }, { text: '', css: 'tdGpuMhz', save: false }]) : row;
         });
         return saved.rows.filter(function (row) { return row.length === expected.length; });
     }

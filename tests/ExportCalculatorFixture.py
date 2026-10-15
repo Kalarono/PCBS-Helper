@@ -39,7 +39,7 @@ for obj in env.objects:
     asset=obj.read()
     if asset.m_Name=='Constants':
         constants={r['Member']:number(r,'Value') for r in rows(asset.m_Script)}
-        db['constants']={'minCpu':constants['s_min3DMarkCPU'],'minGpu':constants['s_min3DMarkGPU'],'minFps':constants['s_min3DMarkFPS']}
+        db['constants']={'minCpu':constants['s_min3DMarkCPU'],'minGpu':constants['s_min3DMarkGPU'],'minFps':constants['s_min3DMarkFPS'],'baseClock':constants['s_defaultBaseClock'],'maxMultiplierPercent':constants['s_maxCPUMultiplierPercentage']}
     if asset.m_Name not in names: continue
     group=names[asset.m_Name]
     for r in rows(asset.m_Script):
@@ -47,9 +47,9 @@ for obj in env.objects:
         name=(r.get('Manufacturer','')+' '+r.get('Part Name','')).strip()
         p={'id':r['ID'],'fullName':name,'displayName':name,'manufacturer':r.get('Manufacturer',''),'price':number(r,'Price'),'sellPrice':number(r,'SellPrice'),'level':number(r,'Level'),'unlocked':number(r,'Level')<=13,'inShop':r.get('In Shop','No')}
         if group=='cpus':
-            p.update(socket=socket(r['CPU Socket']),baseMhz=number(r,'Frequency'),maxChannels=number(r,'Max Memory Channels'),defaultRamMhz=number(r,'Default Memory Speed'),watts=number(r,'Wattage'),canOverclock=r['Can Overclock'],coefficients=[number(r,k) for k in ['CoreClockMultiplier','MemChannelsMultiplier','MemClockMultiplier','FinalAdjustment']])
+            p.update(socket=socket(r['CPU Socket']),baseMhz=number(r,'Frequency'),maxMhz=number(r,'Max Freq'),multiplierStep=number(r,'Multiplier Step'),maxChannels=number(r,'Max Memory Channels'),defaultRamMhz=number(r,'Default Memory Speed'),watts=number(r,'Wattage'),canOverclock=r['Can Overclock'],coefficients=[number(r,k) for k in ['CoreClockMultiplier','MemChannelsMultiplier','MemClockMultiplier','FinalAdjustment']])
         elif group=='gpus':
-            p.update(chipset=r['Chipset'],vendor=r['Chipset Brand'],vram=number(r,'VRAM (GB)'),baseMhz=number(r,'Base Core Clock Freq'),memoryMhz=number(r,'Base Mem Clock Freq'),watts=number(r,'Wattage'),length=number(r,'Length'),slots=number(r,'Slot Size'),multiGpu=yes(r,'Double GPU supported'),sli=yes(r,'Double GPU SLI'),gpuType='Water' if asset.m_Name=='Water Cooled GPU' else 'Air',tests=[[number(r,f'{test} {count} {term}') for term in ['Core Clock Multiplier','Mem Clock Multiplier','Benchmark Adjustment']] for test in ['GT1','GT2'] for count in ['Single','Dual']])
+            p.update(chipset=r['Chipset'],vendor=r['Chipset Brand'],vram=number(r,'VRAM (GB)'),baseMhz=number(r,'Base Core Clock Freq'),maxMhz=number(r,'GPU max clock'),tunerMaxMhz=(int(number(r,'GPU max clock')+int((number(r,'GPU max clock')-number(r,'Base Core Clock Freq'))*0.25))//100+1)*100,memoryMhz=number(r,'Base Mem Clock Freq'),watts=number(r,'Wattage'),length=number(r,'Length'),slots=number(r,'Slot Size'),multiGpu=yes(r,'Double GPU supported'),sli=yes(r,'Double GPU SLI'),gpuType='Water' if asset.m_Name=='Water Cooled GPU' else 'Air',tests=[[number(r,f'{test} {count} {term}') for term in ['Core Clock Multiplier','Mem Clock Multiplier','Benchmark Adjustment']] for test in ['GT1','GT2'] for count in ['Single','Dual']])
         elif group=='mobos':
             p.update(socket=socket(r['CPU Socket']),size=size(r['Motherboard Size']),ramType=r['Ram Type'],canOverclock=r['Can Overclock'],sli=yes(r,'Support SLI'),crossfire=yes(r,'Support Crossfire'),memorySpeeds=sorted(int(s) for s in r['Memory Speed Steps'].split(',') if s),ramSlots=4,gpuSlots=2,gpuPositions=[0,3],m2Slots=1,m2Heatsinks=[0],pciSlots=7)
         elif group=='pcCases':

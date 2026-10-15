@@ -1,4 +1,5 @@
 # Сборки, пакеты релиза, скачанные зависимости и тестовые данные
+# Исходники тестов и инструкции в tests/ остаются в Git; результаты проверок — нет.
 /build/
 /dist/
 /artifacts/
@@ -42,6 +43,8 @@ venv/
 /PCBSHelperBackups/
 
 # Логи, кэш и временные файлы
+/tmp/
+/temp/
 *.log
 *.log.*
 *.tmp
@@ -58,11 +61,12 @@ __pycache__/
 *.stackdump
 
 # Отчёты покрытия тестов
-/coverage/
+coverage/
 .nyc_output/
-/TestResults/
-/test-results/
-/playwright-report/
+TestResults/
+test-results/
+playwright-report/
+blob-report/
 
 # Локальные скриншоты и записи проверок. Материалы гайда в docs/images отслеживаются.
 /screenshots/

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections;
 using System.Reflection;
+using System.Reflection.Emit;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -30,6 +31,7 @@ namespace PCBSCalculatorHelper
         private static readonly FieldInfo AutoBuild = AccessTools.Field(typeof(InstallingPartState), "m_auto");
         private static readonly FieldInfo AutoStandOff = AccessTools.Field(typeof(InstallingPartState), "m_autoStandoff");
         private static readonly FieldInfo OneClickScrew = AccessTools.Field(typeof(InstallingPartState), "m_oneClickScrew");
+        private static readonly FieldInfo AcceptOrientation = AccessTools.Field(typeof(InstallingPartState), "m_accept");
 
         internal WorkbenchAutomation(ConfigFile config, ManualLogSource log)
         {
@@ -57,6 +59,9 @@ namespace PCBSCalculatorHelper
             Hook(harmony, typeof(InstallingPartState), "Tick", "BeforeInstallTick", null);
             Hook(harmony, typeof(InstallingPartState), "DoScrewsStep", "BeforeScrews", null);
             Hook(harmony, typeof(InstallingPartState), "HandleExit", "BeforeInstallExit", null);
+            harmony.Patch(AccessTools.Method(typeof(InstallingPartState), "OrientComponentStep"),
+                new HarmonyMethod(typeof(WorkbenchAutomation), "BeforeOrientation"), null,
+                new HarmonyMethod(typeof(WorkbenchAutomation), "OrientationInput"));
             Hook(harmony, typeof(WorkingOnComputerState), "DisassemblyTick", "BeforeDisassembly", null);
             Hook(harmony, typeof(WorkingOnComputerState), "AssemblyTick", "BeforeAssembly", null);
             Hook(harmony, typeof(WorkingOnComputerState), "OnStateEnter", "BeforeWorkEntered", "AfterWorkEntered");
@@ -144,6 +149,30 @@ namespace PCBSCalculatorHelper
         }
         private static bool BeforeInstallTick(InstallingPartState __instance)
         { return instance == null || !instance.removal.Owns(__instance) || Held; }
+        private static bool ConfirmingOrientation(InstallingPartState state)
+        { return instance != null && state != null && WorkbenchRules.ConfirmOrientation(instance.removal.Owns(state), Held, (float)InstallDirection.GetValue(state)); }
+        private static void BeforeOrientation(InstallingPartState __instance)
+        {
+            // The original mouse-down occurred before dependencies were cleared.
+            // Confirm the current orientation through the native collision-checked path.
+            if (ConfirmingOrientation(__instance)) AcceptOrientation.SetValue(__instance, true);
+        }
+        private static bool OrientationHeld(InputButton button)
+        {
+            // Only this native orientation step sees a release. Ordinary animations,
+            // screws and input elsewhere retain the actual held/released state.
+            return !ConfirmingOrientation(StateNow as InstallingPartState) && button.IsHeld();
+        }
+        private static IEnumerable<CodeInstruction> OrientationInput(IEnumerable<CodeInstruction> instructions)
+        {
+            MethodInfo held = AccessTools.Method(typeof(InputButton), "IsHeld");
+            foreach (CodeInstruction instruction in instructions)
+            {
+                if (instruction.Calls(held))
+                { instruction.opcode = OpCodes.Call; instruction.operand = AccessTools.Method(typeof(WorkbenchAutomation), "OrientationHeld"); }
+                yield return instruction;
+            }
+        }
         private static bool BeforeScrews(InstallingPartState __instance, List<Screw> __0, List<Screw> __1)
         {
             if (instance == null || !instance.removal.Owns(__instance)) return true;

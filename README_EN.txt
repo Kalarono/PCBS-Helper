@@ -1,4 +1,4 @@
-﻿PCBS-Helper 1.0.2
+﻿PCBS-Helper 1.0.3
 An in-game helper for PC Building Simulator 1 on Windows
 
 Tested with game version 1.15.3. Not compatible with PC Building Simulator 2.
@@ -6,6 +6,15 @@ All features run inside the game; both helpers are embedded in the DLL.
 The interface follows the game's language: Russian or English.
 Other game languages use the English helper interface.
 For instructions in Russian, see README.txt.
+
+NEW IN 1.0.3
+
+  - CPU/GPU overclock jobs import clock targets, budget and customer requirements.
+  - Results show the clocks to set manually. Check voltage, cooling and stability
+    in the game.
+  - PCI locks return after GPU installation without duplicates.
+  - Coolers no longer stall at orientation selection after the socket closes.
+  - HDD trays opened by the helper return before case panels are restored.
 
 NEW IN 1.0.2
 
@@ -156,8 +165,9 @@ Enable Build Helper in F1, then press F2 and Alt to use its controls.
   Part Replacer   - Find replacement parts using Get Parts.
   History & Saves - Review calculation history and saved results.
 
-In an email with a 3DMark target, click Helper to import the budget,
-target and available PC details into Build Maker or Build Upgrader.
+In an email with a 3DMark or CPU/GPU clock target, click Helper to import
+the budget, score and clock targets, and available PC details into
+Build Maker or Build Upgrader.
 Review Job objectives and calculation limits, then start the search.
 Clicking Helper does not accept the job or start the calculation.
 
@@ -172,8 +182,11 @@ Budget is for parts only; do not add the payment for your work.
 For new builds, Reserved Budget initially defaults to $400 for other parts.
 Adjust it to your needs. Career Level and % Through are imported from the
 game. Leave All Parts Unlocked? unchecked in a normal career.
-Check repair, storage, cooling and overclocking objectives separately.
-Verify the final score with the in-game 3DMark test.
+Selection checks clock targets, part limits and motherboard overclock support.
+Set the result clocks manually in BIOS / GPU Tuner and test stability with OCCT.
+An upgrade can cost $0 when the installed hardware already fits the targets.
+Table watts exclude overclocking. Account for repairs, storage and cooling
+separately. Verify any score goal with the in-game 3DMark test.
 
 Expand / Compact changes the window size; - / + changes the interface scale.
 Clear resets only the current calculation tab. Close hides the panel

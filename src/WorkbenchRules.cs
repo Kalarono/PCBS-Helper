@@ -18,6 +18,9 @@ namespace PCBSCalculatorHelper
 
     internal static class WorkbenchRules
     {
+        internal static bool ConfirmOrientation(bool owned, bool held, float direction)
+        { return owned && held && direction > 0; }
+
         internal static string CableReplacementMessage(int changed, int failed, int already)
         {
             if (failed > 0) return changed > 0 ? "Some cables could not be replaced. See the helper log." :

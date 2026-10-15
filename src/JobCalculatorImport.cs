@@ -24,17 +24,14 @@ namespace PCBSCalculatorHelper
         private static void Add(JSONNode array, string value) { array.Add(value); }
         public static int Target(Job job)
         {
-            int target = 0;
-            if (job != null) foreach (Objective objective in job.GetObjectives())
-            {
-                BenchmarkScoreObjective score = objective as BenchmarkScoreObjective;
-                if (score != null && !score.IsInvalid()) target = Math.Max(target, score.GetTargetScore());
-            }
-            return target;
+            return CalculatorJobTargets.Read(job == null ? null : job.GetObjectives()).Score;
         }
+        public static bool Supports(Job job)
+        { return job != null && CalculatorJobTargets.Read(job.GetObjectives()).Supported; }
         public static JSONNode Read(Job job)
         {
-            if (job == null || Target(job) <= 0) throw new InvalidOperationException("This job has no 3DMark score objective.");
+            if (!Supports(job)) throw new InvalidOperationException("This job has no score or clock target.");
+            CalculatorJobTargets targets = CalculatorJobTargets.Read(job.GetObjectives());
             bool ru = Russian;
             bool build = job.GetJobType() == JobDesc.Type.BUILD || job.GetJobType() == JobDesc.Type.DLC1_FAKE_BUILD;
             ComputerSave pc = build ? null : job.GetComputer();
@@ -47,6 +44,7 @@ namespace PCBSCalculatorHelper
             fields["cpuBrand"] = "Any"; fields["gpuBrand"] = "Any";
             fields["gpuCount"] = "Any"; fields["gpuType"] = "Any";
             fields["cpuOverclock"] = false;
+            fields["targetCpuMhz"] = targets.CpuMhz; fields["targetGpuMhz"] = targets.GpuMhz;
             if (!build && pc == null)
                 Add(notes, ru ? "Исходный ПК сейчас недоступен: заполните его характеристики вручную." : "The current PC is unavailable; enter its hardware manually.");
             if (pc != null)
@@ -98,7 +96,7 @@ namespace PCBSCalculatorHelper
                 if (objective is DoubleGPUObjective) fields["gpuCount"] = "2";
                 Objective.Type typeOfGoal = objective.GetObjectiveType();
                 if (typeOfGoal == Objective.Type.CWC_GPU || typeOfGoal == Objective.Type.CWC_CPU_AND_GPU) fields["gpuType"] = "Water";
-                if (typeOfGoal == Objective.Type.OVERCLOCK_CPU) fields["cpuOverclock"] = true;
+                if (objective is AllNewPartsObjective) fields["allNewParts"] = true;
                 if (objective is InstallPartObjective)
                 {
                     string id = Field(objective, "m_partId") as string;
@@ -130,8 +128,12 @@ namespace PCBSCalculatorHelper
                 }
             }
             Add(notes, ru
-                ? "Перенесены данные задания. Нажмите Get Builds / Get Upgrades, когда будете готовы. Калькулятор подбирает CPU/GPU/плату, но не выполняет задания по ремонту, накопителям, охлаждению или разгону — все условия перечислены ниже."
-                : "Job data imported. Run Get Builds / Get Upgrades when ready. The calculator selects CPU/GPU/motherboard combinations; repair, storage, cooling and overclock objectives still need your review. All objectives are listed below.");
+                ? "Данные задания перенесены. Подберите сборку или апгрейд, затем проверьте остальные условия ниже. Ремонт, накопители и охлаждение нужно учесть отдельно. Цены указаны за новые детали."
+                : "Job data imported. Find builds or upgrades, then review the remaining objectives below. Account for repairs, storage and cooling separately. Prices are for new parts.");
+            if (targets.CpuMhz > 0 || targets.GpuMhz > 0)
+                Add(notes, ru
+                    ? "Подбор учитывает частоты задания и пределы разгона из игры без бонуса удачного экземпляра. Частоты из результата выставьте вручную: для CPU используется базовая частота 100 МГц. Напряжение, охлаждение и стабильность проверьте в BIOS / GPU Tuner и OCCT. Ватты в таблице указаны без разгона."
+                    : "Clock targets use the game's overclock limits without a silicon lottery bonus. Set the result clocks manually; CPU base clock is 100 MHz. Check voltage, cooling and stability in BIOS / GPU Tuner and OCCT. Table watts exclude overclocking.");
             if (build) Add(notes, ru ? "Reserved Budget = 400 — стандартный резерв калькулятора на БП, охлаждение и накопители. Измените его под выбранные детали." : "Reserved Budget = 400 is the calculator's default allowance for PSU, cooling and storage. Adjust it for your parts.");
             return result;
         }

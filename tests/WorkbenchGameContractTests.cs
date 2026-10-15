@@ -36,6 +36,12 @@ internal static class WorkbenchGameContractTests
             Method(install, "DoScrewsStep", "System.Collections.Generic.List`1<Screw>", "System.Collections.Generic.List`1<Screw>");
             Field(install, "m_dir", "System.Single"); Field(install, "m_part", "PartInstance"); Field(install, "m_slot", "Slot");
             Method(install, "OnStateDestroy");
+            MethodDefinition orient = Method(install, "OrientComponentStep");
+            Check(orient.Body.Instructions.Count(i => i.Operand is MethodReference && ((MethodReference)i.Operand).Name == "IsHeld") == 1,
+                "The orientation input rewrite has exactly one native held check to replace.");
+            foreach (string flag in new[] { "m_accept", "m_canInstall" })
+                Check(orient.Body.Instructions.Any(i => i.Operand is FieldReference && ((FieldReference)i.Operand).Name == flag),
+                    "Native orientation confirmation retains its " + flag + " guard.");
             Field(install, "m_auto", "System.Boolean"); Field(install, "m_autoStandoff", "System.Boolean"); Field(install, "m_oneClickScrew", "System.Boolean");
             Method(install, "UninstallState", "Case", "UnityEngine.Camera", "ComponentPC");
             TypeDefinition controller = Type(game, "GameController");
@@ -66,6 +72,7 @@ internal static class WorkbenchGameContractTests
             Field(slot, "m_dynamicBlockedBy", "System.Collections.Generic.List`1<ComponentPC>");
             Field(slot, "m_dynamicComponentCollidesWith", "System.Collections.Generic.List`1<ComponentPC>");
             Method(slot, "CanFillWithCurrentItem"); Method(slot, "get_blocked");
+            Field(slot, "leaveAttachedWhenRemoved", "System.Boolean"); Method(slot, "RefreshComponent");
             Method(slot, "CurrentBlockers", "System.Boolean", "System.Boolean");
             MethodDefinition aioPlacement = Method(slot, "HandleRadiator", "ComponentPC", "Radiator", "System.Boolean");
             Check(aioPlacement.Body.Instructions.Any(x => x.Operand is MethodReference && ((MethodReference)x.Operand).Name == "SetProxy"),
@@ -134,6 +141,10 @@ internal static class WorkbenchGameContractTests
             Check(ready.Body.Instructions.Any(x => x.Operand is MethodReference && ((MethodReference)x.Operand).Name == "IsPinBlocked"),
                 "Latch readiness must respect the native socket blocker check before toggling.");
             Method(automation, "BeforeAssembly", "WorkingOnComputerState");
+            Method(automation, "BeforeOrientation", "InstallingPartState");
+            Method(automation, "OrientationHeld", "InputButton");
+            Check(automation.Methods.Any(m => m.Name == "OrientationInput"), "Native orientation uses the scoped input rewrite.");
+            Method(removal, "CloseOpenedPins");
             Method(automation, "AfterPinAnimation", "CPin", "System.Collections.IEnumerator&");
             Method(automation, "BeforeSocketAnimation", "LGASlot");
             MethodDefinition paste = Method(automation, "OnInstallEntered", "InstallingPartState");
@@ -162,6 +173,20 @@ internal static class WorkbenchGameContractTests
         foreach (string unrelated in new[] { "CASE_FAN", "RADIATOR", "RESERVOIR", "GPU", "WATER_COOLED_GPU", "MOTHERBOARD", "None" })
             Check(!(bool)pasteEligibility.Invoke(null, new[] { Enum.Parse(nativePartType, unrelated) }),
                 "Unrelated installation must not apply paste: " + unrelated + ".");
+        MethodInfo rewrite = automationType.GetMethod("OrientationInput", BindingFlags.Static | BindingFlags.NonPublic);
+        System.Type instructionType = rewrite.GetParameters()[0].ParameterType.GetGenericArguments()[0];
+        System.Type buttonType = nativePartType.Assembly.GetType("InputButton");
+        MethodInfo heldInput = buttonType.GetMethod("IsHeld"), downInput = buttonType.GetMethod("IsDown");
+        Array source = Array.CreateInstance(instructionType, 2);
+        object heldCall = Activator.CreateInstance(instructionType, new object[] { System.Reflection.Emit.OpCodes.Callvirt, heldInput });
+        object downCall = Activator.CreateInstance(instructionType, new object[] { System.Reflection.Emit.OpCodes.Callvirt, downInput });
+        source.SetValue(heldCall, 0); source.SetValue(downCall, 1);
+        object[] rewritten = ((System.Collections.IEnumerable)rewrite.Invoke(null, new object[] { source })).Cast<object>().ToArray();
+        Check(rewritten.Length == 2 && Object.ReferenceEquals(rewritten[0], heldCall), "The orientation rewrite retains instruction objects and their branch labels.");
+        Check(((MethodInfo)instructionType.GetField("operand").GetValue(heldCall)).Name == "OrientationHeld" &&
+            (System.Reflection.Emit.OpCode)instructionType.GetField("opcode").GetValue(heldCall) == System.Reflection.Emit.OpCodes.Call,
+            "The actual packaged transpiler replaces the native held call with the scoped wrapper.");
+        Check(Object.ReferenceEquals(instructionType.GetField("operand").GetValue(downCall), downInput), "Other orientation input remains native.");
         Console.WriteLine("Installed game workbench API: " + checks + " assertions passed.");
     }
 }

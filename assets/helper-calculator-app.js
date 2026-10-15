@@ -47,6 +47,8 @@ var includeHemParts = false,
     "tdScore",
     "tdWatts",
     "tdAction",
+    "tdCpuMhz",
+    "tdGpuMhz",
   ];
   var resultHeaders = [
     "Case",
@@ -63,6 +65,8 @@ var includeHemParts = false,
     "Score",
     "Watts",
     "Order",
+    "CPU Clock (MHz)",
+    "GPU Clock (MHz)",
   ];
   var currentSaveRow = null,
     loadingHistory = false;
@@ -193,10 +197,16 @@ var includeHemParts = false,
     }
     var target = number(form, "input" + prefix + "Target3DMarkScore", 0),
       budget = number(form, "input" + prefix + "Budget", 0);
-    if (!budget) throw new Error("Budget is required.");
-    if (!target) throw new Error("Score is required.");
+    var targetCpuMhz = number(form, "input" + prefix + "TargetCpuMhz", 0),
+      targetGpuMhz = number(form, "input" + prefix + "TargetGpuMhz", 0);
+    if (budget <= 0 || !isFinite(budget)) throw new Error("Budget is required.");
+    if ([target, targetCpuMhz, targetGpuMhz].some(function (n) { return n < 0 || !Number.isInteger(n); }))
+      throw new Error("Targets must be whole non-negative numbers.");
+    if (!target && !targetCpuMhz && !targetGpuMhz) throw new Error("Enter a score or CPU / GPU clock target.");
     var o = {
       target: target,
+      targetCpuMhz: targetCpuMhz,
+      targetGpuMhz: targetGpuMhz,
       budget: budget,
       reserve: number(form, "input" + prefix + "ReservedBudget", 0),
       offset: number(form, "input" + prefix + "Target3DMarkScoreOffset", 500),
@@ -522,6 +532,8 @@ var includeHemParts = false,
           r.score,
           r.watts,
           "",
+          r.cpuMhz,
+          r.gpuMhz,
         ];
         vals.forEach(function (v, j) {
           var c = tr.insertCell(-1);
@@ -544,18 +556,20 @@ var includeHemParts = false,
       rows.forEach(function (r) {
         var tr = t.insertRow(-1);
         [
-          r.changedCpu ? r.cpu : "",
+          r.changedCpu || o.targetCpuMhz ? r.cpu : "",
           r.gpuCount,
           r.gpuType,
-          r.changedGpu ? r.gpu : "",
+          r.changedGpu || o.targetGpuMhz ? r.gpu : "",
           r.changedMobo ? r.mobo : "",
           r.price,
           o.budget - r.price,
           r.score,
           r.watts,
+          r.cpuMhz,
+          r.gpuMhz,
         ].forEach(function (v, i) {
           var cell=tr.insertCell(-1);cell.textContent=v;
-          cell.className=['tdCpu','tdGpuCount','tdGpuType','tdGpuPart','tdMobo','tdPrice','tdRemaining','tdScore','tdWatts'][i];
+          cell.className=['tdCpu','tdGpuCount','tdGpuType','tdGpuPart','tdMobo','tdPrice','tdRemaining','tdScore','tdWatts','tdCpuMhz','tdGpuMhz'][i];
         });
       });
       if (!rows.length) root.alert("No upgrades found.");
@@ -751,7 +765,9 @@ var includeHemParts = false,
       fields = job.fields || {},
       sys = job.system || {};
     fill(f, "input" + prefix + "Budget", job.budget);
-    fill(f, "input" + prefix + "Target3DMarkScore", job.target);
+    fill(f, "input" + prefix + "Target3DMarkScore", job.target || "");
+    fill(f, "input" + prefix + "TargetCpuMhz", fields.targetCpuMhz || "");
+    fill(f, "input" + prefix + "TargetGpuMhz", fields.targetGpuMhz || "");
     fill(f, "input" + prefix + "ReservedBudget", maker ? 400 : 0);
     fill(f, "pcbsCpuBrand", fields.cpuBrand || "Any");
     fill(f, "pcbsGpuBrand", fields.gpuBrand || "Any");
@@ -960,6 +976,10 @@ var includeHemParts = false,
         index === 1 ? 400 : 0,
       );
       row(f, "input" + prefix + "Target3DMarkScore", "3DMark Score", "number");
+      row(f, "input" + prefix + "TargetCpuMhz", "Target CPU Clock (MHz)", "number");
+      row(f, "input" + prefix + "TargetGpuMhz", "Target GPU Clock (MHz)", "number");
+      var clockHint = el("p", f, "Set a score, clock targets, or both. CPU clocks use a 100 MHz base clock. Set voltage and test cooling / stability in the game; table watts exclude overclocking.");
+      clockHint.className = "hint";
       row(
         f,
         "input" + prefix + "Target3DMarkScoreOffset",
@@ -1198,6 +1218,8 @@ var includeHemParts = false,
               "Remaining",
               "Score",
               "Watts",
+              "CPU Clock (MHz)",
+              "GPU Clock (MHz)",
             ]
           : [
               "CPU",
@@ -1249,6 +1271,8 @@ var includeHemParts = false,
     ].forEach(function (key, i) {
       record[key] = currentSaveRow.cells[i].textContent;
     });
+    record.pcbsCpuMhz = currentSaveRow.cells[14].textContent;
+    record.pcbsGpuMhz = currentSaveRow.cells[15].textContent;
     saveHistory(record);
     root.hideSaver(saveForm);
     root.pcbsFlush();

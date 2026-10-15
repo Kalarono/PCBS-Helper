@@ -8,7 +8,7 @@
     check(document.getElementById('divBuildMakerJobReview').textContent.indexOf('Build a new PC') >= 0, 'Job context restores.');
     check(upgrade.pcbsFixedCpu.value === 'Intel Core i7-7700K' && document.getElementById('tableBuildUpgraderResults').rows.length > 1, 'Exact required parts and upgrade results restore.');
     pcbsClearCurrentTab();
-    check(maker.pcbsCpuBrand.value === 'Any' && maker.pcbsJobMetadata.value === '' && document.getElementById('divBuildMakerJobReview').style.display === 'none', 'Clear removes only current imported job and its constraints.');
+    check(maker.pcbsCpuBrand.value === 'Any' && maker.pcbsJobMetadata.value === '' && document.getElementById('divBuildMakerJobReview').hidden, 'Clear removes only current imported job and its constraints.');
     check(upgrade.pcbsJobMetadata.value !== '' && document.getElementById('tableBuildUpgraderResults').rows.length > 1, 'Clear does not erase the other imported job or its results.');
     check(pcbsErrors.length === 0, 'Import restoration and Clear introduce no browser errors.');
     return { passed: checks };

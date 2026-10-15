@@ -57,6 +57,8 @@ namespace PCBSCalculatorHelper
             constants["minCpu"] = OverclockConstants.s_min3DMarkCPU;
             constants["minGpu"] = OverclockConstants.s_min3DMarkGPU;
             constants["minFps"] = OverclockConstants.s_min3DMarkFPS;
+            constants["baseClock"] = OverclockConstants.s_defaultBaseClock;
+            constants["maxMultiplierPercent"] = OverclockConstants.s_maxCPUMultiplierPercentage;
             foreach (string group in new string[] { "cpus", "gpus", "mobos", "pcCases", "rams", "storages" }) catalog[group] = Obj();
             foreach (PartDesc part in PartsDatabase.GetAllParts())
             {
@@ -80,6 +82,7 @@ namespace PCBSCalculatorHelper
                 if (cpu != null)
                 {
                     item["socket"] = Socket(cpu.m_socket); item["baseMhz"] = cpu.m_freqMhz;
+                    item["maxMhz"] = cpu.m_maxFreqMhz; item["multiplierStep"] = cpu.m_multiplierStep;
                     item["maxChannels"] = cpu.m_maxMemoryChannels; item["defaultRamMhz"] = cpu.m_defaultMemorySpeed;
                     item["watts"] = cpu.m_wattage; item["canOverclock"] = cpu.m_canOverclock ? "Yes" : "No";
                     JSONNode coefficients = Arr(); coefficients.Add(Float(cpu, "m_coefCoreClock")); coefficients.Add(Float(cpu, "m_coefMemChannel"));
@@ -89,6 +92,7 @@ namespace PCBSCalculatorHelper
                 {
                     item["chipset"] = gpu.m_chipSet; item["vendor"] = gpu.m_chipSetBrand; item["vram"] = gpu.m_vramGb;
                     item["baseMhz"] = gpu.m_coreClockFreq; item["memoryMhz"] = gpu.m_memClockFreq;
+                    item["maxMhz"] = gpu.m_maxCoreClockFreq; item["tunerMaxMhz"] = gpu.CoreClockMaxTunerFreq;
                     item["watts"] = gpu.m_wattage; item["length"] = gpu.m_length; item["slots"] = gpu.m_slotSize;
                     item["multiGpu"] = gpu.m_doubleGPU; item["sli"] = gpu.m_useSLI;
                     item["gpuType"] = part.m_type == PartDesc.Type.WATER_COOLED_GPU ? "Water" : "Air";

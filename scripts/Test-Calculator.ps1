@@ -19,3 +19,5 @@ if ($LASTEXITCODE -ne 0) { throw 'Game score oracle failed.' }
 $node = Get-Command node -ErrorAction Stop
 & $node.Source (Join-Path $projectPath 'tests\HelperCalculatorEngineTests.js')
 if ($LASTEXITCODE -ne 0) { throw 'Independent calculator tests failed.' }
+& $node.Source (Join-Path $projectPath 'tests\CalculatorOverclockTests.js')
+if ($LASTEXITCODE -ne 0) { throw 'Overclock quest tests failed.' }

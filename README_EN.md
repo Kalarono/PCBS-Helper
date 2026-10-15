@@ -2,7 +2,7 @@
 
 [Русский](README.md) | **English**
 
-**An in-game helper for PC Building Simulator 1 on Windows. Version 1.0.2.**
+**An in-game helper for PC Building Simulator 1 on Windows. Version 1.0.3.**
 Tested with game version **1.15.3**. Not compatible with PC Building Simulator 2.
 
 Convenience settings, a **Build Helper** and a **Will it Run? Helper**, all
@@ -13,7 +13,11 @@ Both helpers are embedded in the DLL; no separate application is needed.
 This README includes installation instructions and a **step-by-step guide
 with 13 GIF demonstrations and a screenshot of the new shop features**:
 [F1 settings](#f1) · [F2 Build Helper](#f2) · [F3 Will it Run?](#f3) ·
-[new in 1.0.2](#v102) · [feature demonstrations from 1.0.1](#v101).
+[new in 1.0.3](#v103) · [new in 1.0.2](#v102) · [feature demonstrations from 1.0.1](#v101).
+
+**1.0.3** adds builds for CPU/GPU overclock jobs, importing clock targets,
+budget and customer requirements. It also fixes duplicate PCI locks,
+stalled cooler installation and HDD trays left open after installation.
 
 **1.0.2** adds the Soft rows F1 design, persistent shop sorting, colored
 inventory condition counters and scrolling specifications inside shop cards.
@@ -156,7 +160,7 @@ The demonstration reveals requirements to use **new parts** and
 
 Enable **Build Helper (F2)** in **F1**. Press **F2**, then **Alt** to show
 the cursor and interact with fields and buttons. You can also open the
-helper by clicking **Helper** in an email with a 3DMark target.
+helper by clicking **Helper** in an email with a 3DMark or CPU/GPU clock target.
 
 #### 5. Estimate 3DMark without turning on the PC
 
@@ -181,8 +185,8 @@ The example produces an estimated score of **4263**.
 
 #### 6. Find an upgrade from a job email
 
-1. In an email asking for a higher 3DMark score, click **Helper**.
-2. The **Build Upgrader** tab opens with the budget, target score and
+1. In an email asking for a higher 3DMark score or a CPU/GPU overclock, click **Helper**.
+2. The **Build Upgrader** tab opens with the budget, score and clock targets, and
    available hardware details imported from the customer's PC.
 3. Review **Job objectives and calculation limits**, the reserved budget
    and the search options.
@@ -197,8 +201,8 @@ the search using the button in the tab.
 
 #### 7. Find a new build and order its parts
 
-1. In an email requesting a new PC with a 3DMark target, click **Helper**.
-2. The budget and target score are imported into **Build Maker**.
+1. In an email requesting a new PC with a 3DMark or CPU/GPU clock target, click **Helper**.
+2. The budget and any score or clock targets are imported into **Build Maker**.
    Review the job objectives and **Reserved Budget**, which initially
    defaults to **$400** for new builds. Adjust it for the PSU, cooling
    and storage you plan to buy.
@@ -232,7 +236,8 @@ Career level and experience percentage are filled in automatically from
 the game. In a normal career, leave **All Parts Unlocked?** unchecked so
 the search respects part availability. **Budget** is the amount available
 for parts; do not add the payment for your work.
-Review repair, storage, cooling and overclocking objectives separately.
+CPU/GPU clock targets are included in selection. Set the clocks manually in the
+game and check voltage, cooling and stability. Account for repairs and storage separately.
 All fields and constraints are described in the
 [detailed guide (Russian)](docs/USAGE.md).
 
@@ -351,6 +356,28 @@ job objective. Fixed cables on non-modular power supplies and cooling
 components are skipped.
 
 ![Selecting flexible red cables and replacing eligible connected cables in bulk](docs/images/guide/13_replace_customizable_cables.gif)
+
+<a id="v103"></a>
+
+### New in 1.0.3
+
+- **Overclock jobs.** The Helper button imports CPU/GPU clock targets, budget and
+  customer requirements, including jobs without a 3DMark goal. Selection checks
+  part limits without a silicon lottery bonus and motherboard overclock support.
+  Planned clocks appear in results and are saved with the calculation.
+  An upgrade can cost **$0** when the installed hardware already fits the targets.
+- **PCI locks** are restored after GPU installation without a duplicate left
+  by the attached preview.
+- **Cooler installation** continues after the helper closes the CPU socket while
+  LMB is held. Fixed the stall at orientation selection, keeping the game's
+  collision checks.
+- **HDD trays** return after the drive is installed, before case panels are restored.
+  The helper closes latches it opened when the game allows it. PCI blanks stay
+  removed and the socket stays closed under an installed cooler.
+
+Set clocks manually in BIOS / GPU Tuner and test stability with OCCT.
+Choose the PSU, storage and cooling separately. Table watts exclude overclocking;
+the reserved budget leaves room for the remaining parts.
 
 <a id="v102"></a>
 

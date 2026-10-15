@@ -16,6 +16,11 @@ internal static class WorkbenchRulesTests
         Check(!hold.Advance(false, 0.1f), "Release pauses an active queue.");
         Check(hold.Advance(true, 0.001f), "Resume continues immediately.");
         hold.Reset();
+        Check(WorkbenchRules.ConfirmOrientation(true, true, 1), "Assisted installation can confirm orientation while the initiating hold continues.");
+        Check(!WorkbenchRules.ConfirmOrientation(true, false, 1), "Release still pauses assisted installation.");
+        Check(!WorkbenchRules.ConfirmOrientation(false, true, 1), "Ordinary installations retain manual orientation input.");
+        Check(!WorkbenchRules.ConfirmOrientation(true, true, -1), "Removal and cancellation never confirm an installation orientation.");
+        Check(!WorkbenchRules.ConfirmOrientation(true, true, 0), "A stopped direction does not advance orientation.");
         Check(!hold.Advance(true, 0.1f), "Cancel removes the queue's started state.");
         Check(WorkbenchRules.ScrewSpeed(false, false, false, false) == 1f, "Unupgraded screws retain native speed.");
         Check(WorkbenchRules.ScrewSpeed(false, true, false, false) == 4f, "Automatic assembly accelerates ordinary screws.");

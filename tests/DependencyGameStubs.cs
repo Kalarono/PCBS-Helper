@@ -70,12 +70,15 @@ public class Slot : CBlocker
     public enum SlotType { PSU, RAM, CPU, PCI, STORAGE, MOTHERBOARD, CASE_PART_OPTIONAL, PCI_COVER, CASE_COOLER, RADIATOR }
     public SlotType m_slotType;
     public ComponentPC Component;
+    public readonly List<ComponentPC> Children = new List<ComponentPC>();
+    public bool leaveAttachedWhenRemoved;
     public bool Fits = true, NativeBlocked;
     public List<CBlocker> blockedBy = new List<CBlocker>();
     public List<ComponentPC> m_dynamicBlockedBy = new List<ComponentPC>(), m_dynamicComponentCollidesWith = new List<ComponentPC>();
     public CPin[] closePins = new CPin[0];
     public bool blocked { get { return NativeBlocked || CurrentBlockers(false).Any() || m_dynamicBlockedBy.Any(x => x != null) || m_dynamicComponentCollidesWith.Any(x => x != null); } }
-    public ComponentPC GetComponent() { return Component == null ? null : Component; }
+    public ComponentPC GetComponent() { if (Component == null) Component = Children.FirstOrDefault(x => x != null); return Component; }
+    public void RefreshComponent() { Component = Children.FirstOrDefault(x => x != null); }
     public bool CanFillWithCurrentItem() { return Fits && GameController.Get().selectedItem != null && (GetComponent() == null || Component.m_isPlaceholder); }
     public bool IsUninstallingPathBlocked() { return m_dynamicBlockedBy.Any(x => x != null); }
     public override bool IsBlocking(Slot slot) { return GetComponent() != null && !Component.m_isPlaceholder; }
@@ -166,6 +169,7 @@ public class WorkingOnComputerState : WorkingOnComputerStateBase
     public Mode m_mode = Mode.ASSEMBLY;
     public readonly List<Slot> Slots = new List<Slot>();
     private readonly List<Slot> m_pendingSlotsForPlaceholders = new List<Slot>();
+    private readonly List<ComponentPC> trackedPreviews = new List<ComponentPC>();
     public int PendingCount { get { return m_pendingSlotsForPlaceholders.Count; } }
     public WorkingOnComputerState(Case pc) { m_case = pc; }
     public void SetDisassemblyMode() { GameController.Get().selectedItem = null; m_mode = Mode.DISASSEMBLY; }
@@ -173,8 +177,8 @@ public class WorkingOnComputerState : WorkingOnComputerStateBase
     public void ClearPlaceholders()
     {
         m_pendingSlotsForPlaceholders.Clear();
-        foreach (Slot slot in Slots) if (slot.GetComponent() != null && slot.Component.m_isPlaceholder)
-            UnityEngine.Object.DestroyImmediate(slot.Component.gameObject);
+        foreach (ComponentPC preview in trackedPreviews) UnityEngine.Object.DestroyImmediate(preview.gameObject);
+        trackedPreviews.Clear();
     }
     public void PopulatePlaceholders(Slot[] slots) { m_pendingSlotsForPlaceholders.AddRange(slots.Where(x => x != null)); }
     public void TickPopulatePlaceholders()
@@ -186,7 +190,7 @@ public class WorkingOnComputerState : WorkingOnComputerStateBase
         if (slot.CanFillWithCurrentItem())
         {
             ComponentPC preview = new ComponentPC { Slot = slot, Part = GameController.Get().selectedItem, m_isPlaceholder = true };
-            preview.transform.parent = slot.transform; slot.Component = preview;
+            preview.transform.parent = slot.transform; slot.Children.Add(preview); slot.Component = preview; trackedPreviews.Add(preview);
         }
     }
     public void Regenerate() { foreach (Slot slot in Slots) Preview(slot); }
@@ -201,7 +205,7 @@ public class InstallingPartState : WorkingOnComputerStateBase
     {
         m_case = pc; m_camera = camera; Slot = slot; Part = part; Direction = 1;
         GameController.Get().Inventory.Remove(part); GameController.Get().selectedItem = null;
-        Component = new ComponentPC { Part = part, Slot = slot }; Component.transform.parent = slot.transform; slot.Component = Component;
+        Component = new ComponentPC { Part = part, Slot = slot }; Component.transform.parent = slot.transform; slot.Children.Add(Component); slot.Component = Component;
     }
     private InstallingPartState(Case pc, UnityEngine.Camera camera, ComponentPC component)
     { m_case = pc; m_camera = camera; Component = component; Slot = component.Slot; Part = component.Part; Direction = -1; }
@@ -230,7 +234,8 @@ public class GameController
         InstallingPartState state = (InstallingPartState)Current;
         if (state.Direction < 0)
         {
-            Inventory.Add(state.Part); UnityEngine.Object.DestroyImmediate(state.Component.gameObject);
+            if (state.Slot.leaveAttachedWhenRemoved) state.Component.m_isPlaceholder = true;
+            else { Inventory.Add(state.Part); UnityEngine.Object.DestroyImmediate(state.Component.gameObject); }
             LastComponentInstalled = null; NextComponentToUninstall = state.Component.PreviousComponentInCombo;
         }
         else

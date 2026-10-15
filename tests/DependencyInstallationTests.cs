@@ -32,7 +32,7 @@ internal static class DependencyInstallationTests
         internal ComponentPC Part(Slot slot, string id)
         {
             ComponentPC part = new ComponentPC { Part = new PartInstance(id), Slot = slot, name = id };
-            part.transform.parent = slot.transform; slot.Component = part; return part;
+            part.transform.parent = slot.transform; slot.Children.Add(part); slot.Component = part; return part;
         }
         internal void Begin(Slot slot, string id)
         {
@@ -59,8 +59,65 @@ internal static class DependencyInstallationTests
         OpenRamClipsAndPause();
         RespectNativeChecksAndCancel();
         CompleteNativeCombos();
+        RestoreAttachedPciLock();
+        CloseDriveTrayBeforePanels();
+        SkipBlockedTrayClosure();
+        KeepSocketClosedAfterCooler();
         RetainRemovalBehaviour();
         Console.WriteLine("Dependency installation and restoration: " + checks + " assertions passed.");
+    }
+
+    private static void RestoreAttachedPciLock()
+    {
+        Rig r = new Rig(); Slot gpu = r.Slot("GPU", Slot.SlotType.PCI), pciLock = r.Slot("PCI Lock", Slot.SlotType.CASE_PART_OPTIONAL);
+        pciLock.leaveAttachedWhenRemoved = true;
+        ComponentPC original = r.Part(pciLock, "PCI Lock"); gpu.blockedBy.Add(pciLock);
+        r.Begin(gpu, "GPU"); UnityEngine.Time.deltaTime = 0.31f;
+        Check(r.Step().Component == original, "PCI lock is removed through the native state.");
+        r.Finish();
+        Check(original != null && original.m_isPlaceholder, "The real native leave-attached behavior retains an untracked placeholder.");
+        r.DrainPreviews(); r.Step(); r.Finish(); r.DrainPreviews();
+        Check(r.Step().Slot == pciLock, "The PCI lock is restored after the GPU.");
+        Check(original == null, "The retained ghost is removed before the replacement object is created.");
+        r.Finish();
+        Check(pciLock.Children.Count(x => x != null) == 1 && !pciLock.GetComponent().m_isPlaceholder, "Exactly one installed PCI lock remains, with no overlapping preview.");
+        Check(!r.Queue.Active && r.Owner.Notices.Count == 0, "PCI restoration finishes silently.");
+    }
+
+    private static void CloseDriveTrayBeforePanels()
+    {
+        Rig r = new Rig(); Slot hdd = r.Slot("HDD", Slot.SlotType.STORAGE), panel = r.Slot("panel", Slot.SlotType.CASE_PART_OPTIONAL);
+        r.Part(panel, "panel"); Pin tray = new Pin(); hdd.blockedBy.Add(panel); hdd.blockedBy.Add(tray);
+        r.Begin(hdd, "HDD"); UnityEngine.Time.deltaTime = 0.31f;
+        r.Step(); r.Finish(); r.DrainPreviews(); r.Tick();
+        Check(tray.Open, "Drive tray opens to expose the HDD destination.");
+        r.Step(); r.Finish();
+        Check(r.Queue.Active, "The queue remains active until the tray is returned.");
+        WorkbenchAutomation.Held = false; r.Tick(); Check(tray.Open, "Release pauses tray restoration.");
+        WorkbenchAutomation.Held = true; r.Tick();
+        Check(!tray.Open && panel.GetComponent() == null, "The tray slides back before the surrounding panel is installed.");
+        r.Tick(); r.DrainPreviews(); Check(r.Step().Slot == panel, "Panels restore after the tray closes."); r.Finish();
+        Check(!r.Queue.Active && r.Owner.Notices.Count == 0, "HDD and its dependencies finish with no bottom message.");
+    }
+
+    private static void KeepSocketClosedAfterCooler()
+    {
+        Rig r = new Rig(); Slot cooler = r.Slot("cooler", Slot.SlotType.CASE_COOLER); LGASlot socket = new LGASlot { Open = true };
+        cooler.closePins = new CPin[] { socket }; r.Begin(cooler, "cooler"); UnityEngine.Time.deltaTime = 0.31f;
+        r.Tick(); Check(!socket.Open, "The open CPU retention mechanism is closed before installation.");
+        r.Step(); r.Finish();
+        Check(!socket.Open && !r.Queue.Active, "Socket closure is never reversed after the cooler is installed.");
+    }
+
+    private static void SkipBlockedTrayClosure()
+    {
+        Rig r = new Rig(); Slot hdd = r.Slot("HDD", Slot.SlotType.STORAGE); Pin tray = new Pin(); hdd.blockedBy.Add(tray);
+        r.Begin(hdd, "HDD"); UnityEngine.Time.deltaTime = 0.31f; r.Tick(); r.Step(); r.Finish();
+        tray.blockedBy = new CBlocker[] { hdd };
+        r.Tick();
+        Check(!r.Queue.Active && tray.Open && hdd.GetComponent() != null && !hdd.GetComponent().m_isPlaceholder,
+            "A native-blocked latch is skipped without removing the installed drive or forcing the animation.");
+        Check(r.Owner.Notices.Count == 0, "A skipped latch remains silent on the installation HUD.");
     }
 
     private static void RestorePartsInReverseOrder()
@@ -129,6 +186,8 @@ internal static class DependencyInstallationTests
         WorkbenchAutomation.Held = true; UnityEngine.Time.deltaTime = 0.001f; r.Tick();
         Check(bottom.IsOpen(), "Resume immediately opens the second clip.");
         Check(r.Step().Slot == ram, "RAM installs after both clips have opened."); r.Finish();
+        r.Tick(); r.Tick(); r.Tick();
+        Check(!top.Open && !bottom.Open, "Clips opened by the helper are closed after installation when the native mechanism permits it.");
         Check(!r.Queue.Active && r.Owner.Notices.Count == 0, "A pin-only installation finishes silently.");
     }
 
@@ -146,6 +205,7 @@ internal static class DependencyInstallationTests
         UnityEngine.Object.DestroyImmediate(panel.gameObject);
         r.Finish(); r.DrainPreviews();
         r.Tick(); Check(!latch.Open, "Restoration can close the latch required by the original cover slot.");
+        r.Tick(); r.DrainPreviews();
         Check(r.Step().Slot == cover, "The cover is restored after its latch reaches the required state."); r.Finish();
         Check(!r.Queue.Active && r.Ctrl.Inventory.Any(x => x.Id == "panel"), "A missing restoration destination is skipped without losing its part.");
         Check(r.Owner.Notices.Count == 0, "Skipped destinations and latch restoration remain silent.");

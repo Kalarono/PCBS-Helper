@@ -82,6 +82,11 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw 'Native job objective tests could not compile.' }
     & $jobReaderTests $managedPath
     if ($LASTEXITCODE -ne 0) { throw 'Native job objective tests failed.' }
+    $jobTargetsTests = Join-Path $buildPath 'CalculatorJobTargetsTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$jobTargetsTests" "/reference:$(Join-Path $managedPath 'Assembly-CSharp-firstpass.dll')" "/reference:$(Join-Path $managedPath 'UnityEngine.CoreModule.dll')" (Join-Path $projectPath 'src\CalculatorJobTargets.cs') (Join-Path $projectPath 'tests\CalculatorJobTargetsTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Native calculator job target tests could not compile.' }
+    & $jobTargetsTests $managedPath
+    if ($LASTEXITCODE -ne 0) { throw 'Native calculator job target tests failed.' }
     $positionTestExe = Join-Path $buildPath 'WindowPositionTests.exe'
     & $compilerPath /nologo /target:exe "/out:$positionTestExe" (Join-Path $projectPath 'src\WindowPositionMath.cs') (Join-Path $projectPath 'tests\WindowPositionTests.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Window position tests could not compile.' }

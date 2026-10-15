@@ -7,8 +7,8 @@
     };
     var tables = { divBuildMaker: 'tableBuildMakerResults', divBuildUpgrader: 'tableBuildUpgraderResults', divPartReplacer: 'tablePartReplacerResults' };
     var columns = {
-        divBuildMaker: ['case','cpu','ramChannels','ramSpeed','ram','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts','action'],
-        divBuildUpgrader: ['cpu','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts'],
+        divBuildMaker: ['case','cpu','ramChannels','ramSpeed','ram','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts','action','cpuMhz','gpuMhz'],
+        divBuildUpgrader: ['cpu','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts','cpuMhz','gpuMhz'],
         divPartReplacer: ['cpu','gpu','gpu2','mobo','price','remaining','score']
     };
     var scoreIds = ['td3DMarkCpuScore', 'td3DMarkGpuScore', 'td3DMarkSystemScore', 'td3DMarkGpuType', 'td3DMarkSystemWatts',

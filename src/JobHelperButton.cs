@@ -79,7 +79,7 @@ namespace PCBSCalculatorHelper
             {
                 RestoreAction(pane);
                 Job job = Email.GetValue(pane) as Job;
-                bool showCalculator = calculatorEnabled() && job != null && JobCalculatorImport.Target(job) > 0;
+                bool showCalculator = calculatorEnabled() && JobCalculatorImport.Supports(job);
                 bool showRequirements = requirementsEnabled() && RequirementsPanel.HasJobRequirements(job);
                 EmailHelpers helpers;
                 if (!buttons.TryGetValue(pane, out helpers))
@@ -88,7 +88,7 @@ namespace PCBSCalculatorHelper
                     helpers = new EmailHelpers(); buttons[pane] = helpers;
                 }
                 helpers.Calculator = RefreshButton(pane, helpers.Calculator, showCalculator, "Helper",
-                    calculatorEnabled, delegate(Job current) { return JobCalculatorImport.Target(current) > 0; }, openCalculator);
+                    calculatorEnabled, JobCalculatorImport.Supports, openCalculator);
                 helpers.Requirements = RefreshButton(pane, helpers.Requirements, showRequirements, "Will it Run?",
                     requirementsEnabled, RequirementsPanel.HasJobRequirements, openRequirements);
                 QueueLayout();

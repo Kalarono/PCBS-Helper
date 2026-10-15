@@ -17,8 +17,9 @@ namespace PCBSCalculatorHelper
         private CableInstance cable;
         private CPin pin;
         private PendingPart placement;
-        private bool placing, restoring;
+        private bool placing, restoring, closingPins;
         private readonly List<PendingPart> removed = new List<PendingPart>();
+        private readonly List<CPin> openedPins = new List<CPin>();
         private bool fullLoopBlocks;
         private readonly List<string> planTrace = new List<string>();
         private readonly RemovalHold hold = new RemovalHold();
@@ -82,8 +83,12 @@ namespace PCBSCalculatorHelper
                 // Let native multi-part installations (e.g. AIOs) finish first.
                 if (ctrl.LastComponentInstalled != null && !String.IsNullOrEmpty(ctrl.LastComponentInstalled.NextPartIdInCombo)) return;
                 placing = false; restoring = true;
-                if (!NextRestore()) { Cancel(); return; }
                 ctrl.LastComponentInstalled = null;
+                // Return sliding drive trays before restoring panels that may block them.
+                // Socket closures are intentionally not undone after a cooler is fitted.
+                if (openedPins.Count > 0)
+                { closingPins = true; ctrl.NextComponentToUninstall = null; ctrl.selectedItem = null; return; }
+                if (!NextRestore()) { Cancel(); return; }
             }
             ctrl.NextComponentToUninstall = null;
             ctrl.selectedItem = placement.Part;
@@ -136,6 +141,7 @@ namespace PCBSCalculatorHelper
             if (PCBSInput.m_assemblyMode.IsDown() || PCBSInput.m_disassemblyMode.IsDown() || PCBSInput.m_cablingMode.IsDown() || PCBSInput.m_pipingMode.IsDown() ||
                 PCBSInput.m_inventory.IsDown()) { Cancel(); return true; }
             if (!owner.RemoveDependencies.Value) { Cancel(); return true; }
+            if (closingPins) return CloseOpenedPins();
             if (InstallationActive)
             {
                 WorkingOnComputerState.Mode mode = (WorkingOnComputerState.Mode)WorkbenchAutomation.WorkMode.GetValue(state);
@@ -172,6 +178,16 @@ namespace PCBSCalculatorHelper
                 // Use the game's constructor only after its live slot check passes.
                 if (!HasPlacementPreview() || placement.Slot.blocked) return false;
                 ClearPreviews.Invoke(work, null);
+                // Some case parts (notably PCI locks) remain attached as native
+                // placeholders after removal, outside the work state's preview list.
+                // Native installation creates a new object, so remove that old ghost.
+                ComponentPC attached = placement.Slot.GetComponent();
+                if (placement.Slot.leaveAttachedWhenRemoved && attached != null && attached.m_isPlaceholder &&
+                    attached.GetPartInstance().GetPartId() == placement.Part.GetPartId())
+                {
+                    UnityEngine.Object.DestroyImmediate(attached.gameObject);
+                    placement.Slot.RefreshComponent();
+                }
                 GameController ctrl = GameController.Get();
                 ctrl.LastComponentInstalled = null;
                 ctrl.NextComponentToUninstall = null;
@@ -205,6 +221,7 @@ namespace PCBSCalculatorHelper
             else if (next.Item is CPin)
             {
                 pin = (CPin)next.Item;
+                if (InstallationActive && !restoring && next.Open && !pin.IsOpen() && !openedPins.Contains(pin)) openedPins.Add(pin);
                 pin.TogglePin();
                 if (!pin.IsAnimating() && pin.IsOpen() != next.Open)
                 { Trace("Native TogglePin refused: " + Describe(pin)); Stop(); }
@@ -214,6 +231,32 @@ namespace PCBSCalculatorHelper
                 UnityEngine.Object.DestroyImmediate(((WaterPipe)next.Item).gameObject);
                 pc.UpdateGameStatus();
             }
+            return false;
+        }
+
+        private bool CloseOpenedPins()
+        {
+            if (!hold.Advance(WorkbenchAutomation.Held, Time.deltaTime)) return false;
+            if (pin != null && pin.IsAnimating()) return false;
+            pin = null;
+            while (openedPins.Count > 0)
+            {
+                CPin latch = openedPins[openedPins.Count - 1];
+                openedPins.RemoveAt(openedPins.Count - 1);
+                if (latch == null || !latch.IsOpen()) continue;
+                // Do not remove a newly fitted part merely to close a clip.
+                if (IsPinBlocked(latch)) { owner.LogRemoval("Cannot close latch: " + Describe(latch)); continue; }
+                pin = latch;
+                owner.LogRemoval("Closing installation latch: " + Describe(latch));
+                latch.TogglePin();
+                return false;
+            }
+            closingPins = false;
+            ClearPreviews.Invoke(work, null);
+            if (!NextRestore()) { Cancel(); return false; }
+            GameController.Get().selectedItem = placement.Part;
+            AssemblyMode.Invoke(work, null);
+            PopulatePreviews.Invoke(work, new object[] { new[] { placement.Slot } });
             return false;
         }
 
@@ -441,7 +484,7 @@ namespace PCBSCalculatorHelper
                 if (!InstallationActive) DisassemblyMode.Invoke(work, null);
             }
             work = null; installing = null; target = null; pc = null; cable = null; pin = null;
-            placement = null; placing = false; restoring = false; removed.Clear();
+            placement = null; placing = false; restoring = false; closingPins = false; removed.Clear(); openedPins.Clear();
             hold.Reset();
             fullLoopBlocks = false;
         }

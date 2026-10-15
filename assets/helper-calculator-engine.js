@@ -152,6 +152,25 @@
   function limit(options) {
     return Math.max(1, Math.min(200, integer(options.results, 10)));
   }
+  function cpuClock(cpu, target, constants) {
+    target = positive(target, cpu.baseMhz);
+    if (target <= cpu.baseMhz) return cpu.baseMhz;
+    var base = positive(constants.baseClock, 100), step = positive(cpu.multiplierStep, 0);
+    if (cpu.canOverclock !== "Yes" || !step || !positive(cpu.maxMhz, 0)) return 0;
+    var multiplier = Math.ceil(target / base / step) * step;
+    var maxMultiplier = Math.trunc(Math.trunc(cpu.baseMhz * positive(constants.maxMultiplierPercent, 200) / 100) / base);
+    var mhz = Math.trunc(f(f(base) * f(multiplier)));
+    return multiplier <= maxMultiplier && mhz >= target && mhz <= cpu.maxMhz ? mhz : 0;
+  }
+  function gpuClock(gpu, target) {
+    target = positive(target, gpu.baseMhz);
+    if (target <= gpu.baseMhz) return gpu.baseMhz;
+    return Number.isInteger(target) && target <= gpu.maxMhz && target <= gpu.tunerMaxMhz ? target : 0;
+  }
+  function scoreMatches(total, options) {
+    return !positive(options.target, 0) ||
+      total >= options.target && total <= options.target + options.offset;
+  }
   function finish(results, options) {
     results.sort(function (a, b) {
       return (
@@ -166,6 +185,7 @@
     var cpus = sorted(db.cpus, filters).filter(function (p) {
       return (
         matches(p, options.fixed.cpu, options.cpuBrand, false) &&
+        !!cpuClock(p, options.targetCpuMhz, db.constants) &&
         (!options.cpuOverclock || p.canOverclock === "Yes") &&
         (!options.socket ||
           options.socket === "Any" ||
@@ -175,6 +195,7 @@
     var gpus = sorted(db.gpus, filters).filter(function (p) {
       return (
         matches(p, options.fixed.gpu, options.gpuBrand, true) &&
+        !!gpuClock(p, options.targetGpuMhz) &&
         (!options.gpuType ||
           options.gpuType === "Any" ||
           p.gpuType === options.gpuType)
@@ -194,8 +215,7 @@
     });
     var counts =
         options.gpuCount === "Any" ? [1, 2] : [integer(options.gpuCount, 1)],
-      results = [],
-      upper = options.target + options.offset;
+      results = [];
     // Enumerate supporting memory/boards once, then reuse them across CPU/GPU pairs.
     // RAM models with the same type, effective speed and manufacturer compete on price.
     var plans = Object.create(null);
@@ -239,7 +259,7 @@
           gpuScores[gpu.id + ":" + count] = gpuScore(
             gpu,
             count,
-            0,
+            gpuClock(gpu, options.targetGpuMhz),
             0,
             db.constants,
           );
@@ -247,6 +267,7 @@
     });
     var caseCache = Object.create(null);
     cpus.forEach(function (cpu) {
+      var cpuMhz = cpuClock(cpu, options.targetCpuMhz, db.constants);
       var cpuScores = Object.create(null);
       gpus.forEach(function (gpu) {
         counts.forEach(function (count) {
@@ -260,6 +281,7 @@
               ram = plan.ram,
               speed = plan.speed,
               sticks = plan.sticks;
+            if (cpuMhz > cpu.baseMhz && board.canOverclock !== "Yes") return;
             if (sticks > cpu.maxChannels) return;
             var supportPrice =
               (options.includeMobo ? board.price : 0) +
@@ -285,11 +307,11 @@
             if (!casePart) return;
             var cpuKey = speed + ":" + sticks;
             if (!cpuScores[cpuKey])
-              cpuScores[cpuKey] = cpuScore(cpu, speed, sticks, 0, db.constants);
+              cpuScores[cpuKey] = cpuScore(cpu, speed, sticks, cpuMhz, db.constants);
             var scoreCpu = cpuScores[cpuKey],
               scoreGpu = gpuScores[gpu.id + ":" + count];
             var total = combine(scoreCpu, scoreGpu);
-            if (total < options.target || total > upper) return;
+            if (!scoreMatches(total, options)) return;
             var candidate = {
               cpu: cpu.fullName,
               gpu: gpu.fullName,
@@ -301,6 +323,8 @@
               pcCase: casePart.fullName,
               gpuType: gpu.gpuType,
               score: total,
+              cpuMhz: cpuMhz,
+              gpuMhz: gpuClock(gpu, options.targetGpuMhz),
               watts: cpu.watts + gpu.watts * count + 30,
               price:
                 basePrice +
@@ -375,6 +399,7 @@
       .filter(function (p) {
         return (
           matches(p, options.fixed.cpu, options.cpuBrand, false) &&
+          (!options.targetCpuMhz || !!cpuClock(p, options.targetCpuMhz, db.constants)) &&
           (!options.cpuOverclock || p.canOverclock === "Yes")
         );
       })
@@ -383,6 +408,7 @@
           .filter(function (p) {
             return (
               matches(p, options.fixed.gpu, options.gpuBrand, true) &&
+              (!options.targetGpuMhz || !!gpuClock(p, options.targetGpuMhz)) &&
               (options.gpuType === "Any" ||
                 !options.gpuType ||
                 p.gpuType === options.gpuType)
@@ -406,6 +432,13 @@
                   return;
                 if (options.cpuOverclock && board.canOverclock !== "Yes")
                   return;
+                var cpuMhz = options.targetCpuMhz
+                  ? cpuClock(cpu, options.targetCpuMhz, db.constants)
+                  : cpu === oldCpu ? positive(system.cpuMhz, cpu.baseMhz) : cpu.baseMhz;
+                var gpuMhz = options.targetGpuMhz
+                  ? gpuClock(gpu, options.targetGpuMhz)
+                  : gpu === oldGpu ? positive(system.gpuMhz, gpu.baseMhz) : gpu.baseMhz;
+                if (!cpuMhz || !gpuMhz || cpuMhz > cpu.baseMhz && board.canOverclock !== "Yes") return;
                 if (
                   board.ramType !== oldBoard.ramType ||
                   !compatible(
@@ -431,13 +464,13 @@
                     cpu,
                     speed,
                     Math.min(Number(system.ramSticks), cpu.maxChannels),
-                    cpu === oldCpu ? system.cpuMhz : 0,
+                    cpuMhz,
                     db.constants,
                   ),
                   gpuScore(
                     gpu,
                     count,
-                    gpu === oldGpu ? system.gpuMhz : 0,
+                    gpuMhz,
                     gpu === oldGpu ? system.gpuMemoryMhz : 0,
                     db.constants,
                   ),
@@ -447,10 +480,9 @@
                   gpuPrice +
                   (board === oldBoard ? 0 : board.price);
                 if (
-                  !price ||
+                  (!price && !options.targetCpuMhz && !options.targetGpuMhz) ||
                   price + options.reserve > options.budget ||
-                  total < options.target ||
-                  total > options.target + options.offset
+                  !scoreMatches(total, options)
                 )
                   return;
                 var candidate = {
@@ -467,6 +499,8 @@
                   gpuType: gpu.gpuType,
                   price: price,
                   score: total,
+                  cpuMhz: cpuMhz,
+                  gpuMhz: gpuMhz,
                   watts: cpu.watts + gpu.watts * count + 30,
                   changedCpu: cpu !== oldCpu,
                   changedGpu: gpuPrice !== 0,
@@ -613,6 +647,8 @@
     score: score,
     available: available,
     compatible: compatible,
+    cpuClock: cpuClock,
+    gpuClock: gpuClock,
     maker: maker,
     upgrader: upgrader,
     replacer: replacer,

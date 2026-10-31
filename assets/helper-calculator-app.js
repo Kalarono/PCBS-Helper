@@ -49,6 +49,10 @@ var includeHemParts = false,
     "tdAction",
     "tdCpuMhz",
     "tdGpuMhz",
+    "tdCoolerPart",
+    "tdCpuThermal",
+    "tdPsuPart",
+    "tdGpuVoltage",
   ];
   var resultHeaders = [
     "Case",
@@ -67,6 +71,10 @@ var includeHemParts = false,
     "Order",
     "CPU Clock (MHz)",
     "GPU Clock (MHz)",
+    "CPU Cooler",
+    "CPU Load / Voltage",
+    "PSU",
+    "GPU Power (%)",
   ];
   var currentSaveRow = null,
     loadingHistory = false;
@@ -120,7 +128,8 @@ var includeHemParts = false,
     t.id = id;
     var tr = el("tr", el("tbody", t));
     headers.forEach(function (s) {
-      el("th", tr, s);
+      var header = el("th", tr, s);
+      if (s === "Price") header.className = "tdPrice";
     });
     return t;
   }
@@ -209,7 +218,7 @@ var includeHemParts = false,
       targetGpuMhz: targetGpuMhz,
       budget: budget,
       reserve: number(form, "input" + prefix + "ReservedBudget", 0),
-      offset: number(form, "input" + prefix + "Target3DMarkScoreOffset", 500),
+      offset: number(form, "input" + prefix + "Target3DMarkScoreOffset", Infinity),
       results: number(form, "input" + prefix + "ResultsRequested", 10),
       fixed: {},
       brands: job ? job.brands || [] : [],
@@ -254,6 +263,7 @@ var includeHemParts = false,
       o.brands = root.PCBSJobRules.upgradeBrandRules(
         o.brands,
         sourceData,
+        o.targetCpuMhz > 0,
       ).applied;
     }
     return o;
@@ -280,10 +290,11 @@ var includeHemParts = false,
       cpuMhz: job && job.system ? job.system.cpuMhz : 0,
       gpuMhz: job && job.system ? job.system.gpuMhz : 0,
       gpuMemoryMhz: job && job.system ? job.system.gpuMemoryMhz : 0,
+      cooler: job && job.system ? canonical(job.system.cooler, "coolers") : "",
     };
   }
   function canonical(name, group) {
-    if (!name || sourceData[group][name]) return name || "";
+    if (!name || !sourceData[group] || sourceData[group][name]) return name || "";
     var norm = CalculatorName;
     return (
       Object.keys(sourceData[group]).find(function (s) {
@@ -312,10 +323,10 @@ var includeHemParts = false,
   };
   root.setData = function () {
     data = Object.assign({}, sourceData);
-    ["cpus", "gpus", "mobos", "pcCases", "rams", "storages"].forEach(
+    ["cpus", "gpus", "mobos", "pcCases", "rams", "storages", "coolers", "psus"].forEach(
       function (group) {
         data[group] = {};
-        Object.keys(sourceData[group]).forEach(function (name) {
+        Object.keys(sourceData[group] || {}).forEach(function (name) {
           if (engine.available(sourceData[group][name], filters()))
             data[group][name] = sourceData[group][name];
         });
@@ -326,9 +337,9 @@ var includeHemParts = false,
     return allPartsUnlocked || level > 0;
   };
   root.pcbsSetCatalogAvailability = function (unlocked) {
-    ["cpus", "gpus", "mobos", "pcCases", "rams", "storages"].forEach(
+    ["cpus", "gpus", "mobos", "pcCases", "rams", "storages", "coolers", "psus"].forEach(
       function (group) {
-        Object.keys(sourceData[group]).forEach(function (name) {
+        Object.keys(sourceData[group] || {}).forEach(function (name) {
           var part = sourceData[group][name];
           if (typeof unlocked[part.id] === "boolean")
             part.unlocked = unlocked[part.id];
@@ -507,6 +518,16 @@ var includeHemParts = false,
     sessionStorage.setItem(key, JSON.stringify(record));
     root.updateHistory();
   }
+  function thermalText(result) {
+    return result.cpuTemp == null ? "" : result.cpuTemp + " °C / " + result.cpuVoltage + " V";
+  }
+  function noResults(o, upgrade) {
+    var translate = root.pcbsTranslate || function (text) { return text; };
+    var message = translate(upgrade ? "No upgrades found." : "No builds found.");
+    if (o.reserve > 0)
+      message += "\n\n" + translate("The reserved budget also limits this search. Reduce it if you need less money for the remaining parts.");
+    root.alert(message);
+  }
   root.BuildMakerGetBuilds = function () {
     safe(function () {
       var f = document.getElementById(forms[1]),
@@ -527,13 +548,17 @@ var includeHemParts = false,
           r.gpuType,
           r.gpu,
           o.includeMobo ? r.mobo : "",
-          r.price,
+          "$" + r.price,
           o.budget - r.price,
           r.score,
           r.watts,
           "",
           r.cpuMhz,
           r.gpuMhz,
+          r.cooler || "",
+          thermalText(r),
+          r.psu,
+          r.gpuVoltage,
         ];
         vals.forEach(function (v, j) {
           var c = tr.insertCell(-1);
@@ -542,7 +567,7 @@ var includeHemParts = false,
           if (j === 13) root.addSaveButton(c, i + 1);
         });
       });
-      if (!rows.length) root.alert("No builds found.");
+      if (!rows.length) noResults(o, false);
       root.pcbsFlush();
     });
   };
@@ -561,18 +586,21 @@ var includeHemParts = false,
           r.gpuType,
           r.changedGpu || o.targetGpuMhz ? r.gpu : "",
           r.changedMobo ? r.mobo : "",
-          r.price,
+          "$" + r.price,
           o.budget - r.price,
           r.score,
           r.watts,
           r.cpuMhz,
           r.gpuMhz,
+          r.cooler || "",
+          thermalText(r),
+          r.gpuVoltage,
         ].forEach(function (v, i) {
           var cell=tr.insertCell(-1);cell.textContent=v;
-          cell.className=['tdCpu','tdGpuCount','tdGpuType','tdGpuPart','tdMobo','tdPrice','tdRemaining','tdScore','tdWatts','tdCpuMhz','tdGpuMhz'][i];
+          cell.className=['tdCpu','tdGpuCount','tdGpuType','tdGpuPart','tdMobo','tdPrice','tdRemaining','tdScore','tdWatts','tdCpuMhz','tdGpuMhz','tdCoolerPart','tdCpuThermal','tdGpuVoltage'][i];
         });
       });
-      if (!rows.length) root.alert("No upgrades found.");
+      if (!rows.length) noResults(o, true);
       root.pcbsFlush();
     });
   };
@@ -716,6 +744,7 @@ var includeHemParts = false,
         root.PCBSJobRules.upgradeBrandRules(
           job.brands,
           sourceData,
+          number(getForm(pages[index]), "inputBuildUpgraderTargetCpuMhz", 0) > 0,
         ).deferred.forEach(function (rule) {
           el(
             "p",
@@ -725,12 +754,12 @@ var includeHemParts = false,
                   rule.brand +
                   " (" +
                   rule.count +
-                  "): проверьте отдельно в игре. Апгрейд заменяет только CPU, GPU и плату."
+                  "): проверьте отдельно в игре. Это условие не входит в данный подбор."
               : "Brand objective " +
                   rule.brand +
                   " (" +
                   rule.count +
-                  "): check separately in the game. Upgrades replace CPU, GPU and motherboard only.",
+                  "): check separately in the game. This objective is outside the current selection.",
           );
         });
       var hardware = el("details", review);
@@ -758,17 +787,20 @@ var includeHemParts = false,
   root.pcbsImportJob = function (job) {
     if (!job || ![pages[1], pages[2]].includes(job.tab)) return;
     root.showPage(job.tab);
-    root.pcbsClearCurrentTab();
     var f = getForm(job.tab),
       maker = job.tab === pages[1],
       prefix = maker ? "BuildMaker" : "BuildUpgrader",
       fields = job.fields || {},
       sys = job.system || {};
+    var reserve = value(f, "input" + prefix + "ReservedBudget");
+    root.pcbsClearCurrentTab();
     fill(f, "input" + prefix + "Budget", job.budget);
     fill(f, "input" + prefix + "Target3DMarkScore", job.target || "");
     fill(f, "input" + prefix + "TargetCpuMhz", fields.targetCpuMhz || "");
     fill(f, "input" + prefix + "TargetGpuMhz", fields.targetGpuMhz || "");
-    fill(f, "input" + prefix + "ReservedBudget", maker ? 400 : 0);
+    // Each tab already starts with its default reserve. Keep the user's
+    // choice on import, including an empty field (which means zero).
+    fill(f, "input" + prefix + "ReservedBudget", reserve);
     fill(f, "pcbsCpuBrand", fields.cpuBrand || "Any");
     fill(f, "pcbsGpuBrand", fields.gpuBrand || "Any");
     [
@@ -978,16 +1010,18 @@ var includeHemParts = false,
       row(f, "input" + prefix + "Target3DMarkScore", "3DMark Score", "number");
       row(f, "input" + prefix + "TargetCpuMhz", "Target CPU Clock (MHz)", "number");
       row(f, "input" + prefix + "TargetGpuMhz", "Target GPU Clock (MHz)", "number");
-      var clockHint = el("p", f, "Set a score, clock targets, or both. CPU clocks use a 100 MHz base clock. Set voltage and test cooling / stability in the game; table watts exclude overclocking.");
+      var clockHint = el("p", f, "CPU clock plans retain a 5 °C thermal margin. CPU base clock: 100 MHz. Set the shown clocks and power, keep GPU memory at stock and test stability with OCCT. Build power includes overclocking.");
       clockHint.className = "hint";
-      row(
+      var offsetInput = row(
         f,
         "input" + prefix + "Target3DMarkScoreOffset",
         "Score Offset",
         "number",
         null,
-        500,
+        "",
       );
+      offsetInput.placeholder = "Unlimited";
+      offsetInput.title = "Leave empty for no upper score limit. Enter a number to limit the excess above the target.";
     }
     row(
       f,
@@ -1197,6 +1231,10 @@ var includeHemParts = false,
     var res = el("div", page);
     res.id = page.id + "Results";
     res.className = "results";
+    if (index === 1) {
+      var priceHint = el("p", res, "Build price includes the selected PSU and CPU cooler. Storage and delivery are separate; unchecked components are excluded. GPU memory stays at stock; set GPU Power (%) as shown.");
+      priceHint.className = "hint";
+    }
     table(
       res,
       [
@@ -1220,6 +1258,9 @@ var includeHemParts = false,
               "Watts",
               "CPU Clock (MHz)",
               "GPU Clock (MHz)",
+              "CPU Cooler",
+              "CPU Load / Voltage",
+              "GPU Power (%)",
             ]
           : [
               "CPU",
@@ -1273,6 +1314,10 @@ var includeHemParts = false,
     });
     record.pcbsCpuMhz = currentSaveRow.cells[14].textContent;
     record.pcbsGpuMhz = currentSaveRow.cells[15].textContent;
+    record.cooler = currentSaveRow.cells[16].textContent;
+    record.cpuThermal = currentSaveRow.cells[17].textContent;
+    record.psu = currentSaveRow.cells[18].textContent;
+    record.gpuVoltage = currentSaveRow.cells[19].textContent;
     saveHistory(record);
     root.hideSaver(saveForm);
     root.pcbsFlush();

@@ -23,7 +23,7 @@ internal static class HelperLocalizationTests
         Check(HelperLocalization.Text("Select the combination manually to meet the part count.") ==
             "Подберите сочетание деталей вручную с учётом нужного количества.", "Multi-part brand goals explain manual combination selection.");
         Check(HelperLocalization.Text("Could not read the job clarifications. Check the order email.") == "Не удалось прочитать уточнения заказа. Проверьте письмо клиента.", "Missing job data must have a readable localized message.");
-        Check(HelperLocalization.Text("Install All Apps") == "Устанавливать все приложения", "Tweaker settings are localized.");
+        Check(HelperLocalization.Text("Instant Utility Installation") == "Моментальная установка утилит", "The renamed utility/OS toggle is localized.");
         Check(HelperLocalization.Text("Shop inventory counters") == "Наличие деталей в магазине", "The F1 shop counter toggle is localized.");
         Check(HelperLocalization.Text("Part stock counters") == "Счётчики деталей", "The shared shop/inventory counter toggle is localized.");
         foreach (string result in new[] {

@@ -150,7 +150,7 @@ const branded = engine.maker(
 );
 assert.ok(
   branded.length &&
-    branded.every((b) => db.pcCases[b.pcCase].manufacturer === "NZXT"),
+    branded.every((b) => [db.pcCases[b.pcCase],db.coolers[b.cooler],db.psus[b.psu]].some(p=>p && p.manufacturer === "NZXT")),
 );
 checks++;
 const narrow = { ...db, cpus: {}, mobos: {} };

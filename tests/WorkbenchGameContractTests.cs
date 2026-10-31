@@ -23,6 +23,38 @@ internal static class WorkbenchGameContractTests
     {
         using (ModuleDefinition game = ModuleDefinition.ReadModule(Path.Combine(args[0], "Assembly-CSharp-firstpass.dll")))
         {
+            TypeDefinition virtualPc = Type(game, "VirtualComputer");
+            TypeDefinition coolerDesc = Type(game, "PartDescCooler");
+            TypeDefinition psuDesc = Type(game,"PartDescPSU");
+            Field(psuDesc,"m_wattage","System.Int32"); Field(psuDesc,"m_length","System.Int32"); Field(psuDesc,"m_size","PSUSize");
+            Field(Type(game,"PartDescCase"),"m_PSUSize","System.Collections.Generic.List`1<PSUSize>");
+            Field(Type(game,"PartDescCase"),"m_maxPSULength","System.Int32");
+            foreach (string member in new[]{"m_height","m_size","m_slots"}) Field(coolerDesc,member,"System.Int32");
+            Field(coolerDesc,"m_airflow","System.Single"); Field(coolerDesc,"m_socketRequirement","SocketRequirement");
+            Field(Type(game,"SocketRequirement"),"m_sockets","System.Collections.Generic.List`1<CpuSocket>");
+            TypeDefinition caseDesc = Type(game,"PartDescCase");
+            foreach(string member in new[]{"m_maxCPUFanHeight","m_maxRadiatorLength120mm","m_maxRadiatorLength140mm"}) Field(caseDesc,member,"System.Int32");
+            Field(caseDesc,"m_cooling","System.Single"); Method(Type(game,"ComputerSave"),"GetActiveCPUCooler");
+            Method(virtualPc, "OSInstallProcess");
+            TypeDefinition osInstall = virtualPc.NestedTypes.Single(t => t.Name.StartsWith("<OSInstallProcess>"));
+            MethodDefinition osMove = Method(osInstall, "MoveNext");
+            Check(osMove.Body.Instructions.Count(i => i.OpCode == OpCodes.Stfld && i.Operand is FieldReference &&
+                ((FieldReference)i.Operand).Name.StartsWith("<duration>")) == 1, "Only one native OS installation duration is initialized.");
+            Check(osMove.Body.Instructions.Count(i => i.Operand is MethodReference && ((MethodReference)i.Operand).Name == "InstallOS") == 1,
+                "The installer finishes by calling the native OS installation method once.");
+            MethodDefinition startup = Method(virtualPc.NestedTypes.Single(t => t.Name.StartsWith("<StartupSequence>")), "MoveNext");
+            int biosCheck = startup.Body.Instructions.ToList().FindIndex(i => i.Operand is MethodReference && ((MethodReference)i.Operand).Name == "CheckBiosError");
+            int installation = startup.Body.Instructions.ToList().FindIndex(i => i.Operand is MethodReference && ((MethodReference)i.Operand).Name == "OSInstallProcess");
+            Check(biosCheck >= 0 && biosCheck < installation, "BIOS checks run before entering the OS installer.");
+            MethodDefinition checkBios = Method(virtualPc, "CheckBiosError");
+            Check(checkBios.Body.Instructions.Count(i => i.Operand is MethodReference && ((MethodReference)i.Operand).Name == "IsUSBDriveInserted") == 1,
+                "The OS bootstrap has exactly one USB prerequisite to replace.");
+            foreach (string message in new[] { "get_NO_CPU", "get_NO_HARD_DISK", "get_NO_RAM", "get_NO_KEYBOARD" })
+                Check(checkBios.Body.Instructions.Any(i => i.Operand is MethodReference && ((MethodReference)i.Operand).Name == message),
+                    "The native hardware failure remains separate from USB availability: " + message);
+            MethodDefinition nativeOS = Method(Type(game, "ComputerSave"), "InstallOS");
+            Check(nativeOS.Body.Instructions.Any(i => i.Operand is MethodReference && ((MethodReference)i.Operand).Name == "GetBootDrive"),
+                "Native OS installation targets the BIOS boot drive.");
             TypeDefinition work = Type(game, "WorkingOnComputerState");
             Method(work, "HandleInput"); Method(work, "DisassemblyTick"); Method(work, "SetDisassemblyMode"); Method(work, "HandleExit");
             Method(work, "AssemblyTick"); Method(work, "OnStateEnter"); Method(work, "ClearPlaceholders");
@@ -113,6 +145,10 @@ internal static class WorkbenchGameContractTests
         }
         using (ModuleDefinition helper = ModuleDefinition.ReadModule(args[1]))
         {
+            MethodDefinition apply = Method(Type(helper, "TweakerPanel"), "Apply");
+            Check(apply.Body.Instructions.Any(i => i.OpCode == OpCodes.Stsfld && i.Operand is FieldReference &&
+                ((FieldReference)i.Operand).DeclaringType.Name == "OperatingSystemInstallation" && ((FieldReference)i.Operand).Name == "Enabled"),
+                "The existing application toggle also controls fast OS installation.");
             TypeDefinition automation = Type(helper, "WorkbenchAutomation");
             Method(automation, "BeforeWorkEntered", "WorkingOnComputerState", "PartDesc&");
             Method(automation, "AfterWorkEntered", "WorkingOnComputerState", "PartDesc");

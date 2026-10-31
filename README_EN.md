@@ -105,7 +105,7 @@ game does not store calendar timestamps for inventory items.
 
 #### 1. Install all apps and instant 3DMark
 
-1. Press **F1** and enable **Install All Apps**.
+1. Press **F1** and enable **Instant Utility Installation**.
 2. On the in-game PC's desktop, open **Add/Remove Programs**.
    The applications will appear on that PC's desktop.
 3. Enable **Instant 3DMark** in F1.
@@ -204,8 +204,8 @@ the search using the button in the tab.
 1. In an email requesting a new PC with a 3DMark or CPU/GPU clock target, click **Helper**.
 2. The budget and any score or clock targets are imported into **Build Maker**.
    Review the job objectives and **Reserved Budget**, which initially
-   defaults to **$400** for new builds. Adjust it for the PSU, cooling
-   and storage you plan to buy.
+   defaults to **$400** for new builds. The selected PSU and CPU cooler use
+   this reserve first; any remainder is set aside for storage and other purchases.
 3. Click **Get Builds** and choose a suitable result.
 4. Click **Order** at the end of its row. Scroll the table to the right
    if needed. Once the parts are added, the button shows **In cart**.
@@ -214,7 +214,8 @@ the search using the button in the tab.
 
 **Order** adds the case, CPU, motherboard, RAM and GPU included in the
 selected result, with the required numbers of RAM modules and graphics
-cards. **Choose the PSU, storage and cooling separately.**
+cards, plus the selected CPU cooler and PSU. Their costs are included
+in the build price. Storage and delivery are separate purchases.
 This button works independently of **Click Purchase** in F1.
 
 If the button shows **Partly in cart**, read the list of skipped parts
@@ -361,6 +362,11 @@ components are skipped.
 
 ### New in 1.0.3
 
+- **Instant Utility Installation** in F1 combines application installation
+  with instant OS installation without a USB drive. Enable it before booting
+  a PC without an OS. Working storage and hardware are still required.
+  After booting, open Add/Remove Programs to add the applications.
+  Turning the option off restores the normal installation process.
 - **Overclock jobs.** The Helper button imports CPU/GPU clock targets, budget and
   customer requirements, including jobs without a 3DMark goal. Selection checks
   part limits without a silicon lottery bonus and motherboard overclock support.
@@ -370,14 +376,36 @@ components are skipped.
   by the attached preview.
 - **Cooler installation** continues after the helper closes the CPU socket while
   LMB is held. Fixed the stall at orientation selection, keeping the game's
-  collision checks.
+  collision checks. AIO installation now also closes an open CPU socket latch
+  before installing the radiator.
 - **HDD trays** return after the drive is installed, before case panels are restored.
   The helper closes latches it opened when the game allows it. PCI blanks stay
   removed and the socket stays closed under an installed cooler.
 
 Set clocks manually in BIOS / GPU Tuner and test stability with OCCT.
-Choose the PSU, storage and cooling separately. Table watts exclude overclocking;
-the reserved budget leaves room for the remaining parts.
+New builds always include a cooler that fits the socket and case; upgrades
+select cooling when a CPU clock target is set. Results show
+the cooler, estimated full-load CPU temperature and voltage. Selection keeps
+a **5 °C** margin below throttling without a silicon lottery bonus or extra
+case fans. Cooler cost is included in the build price and deducted from the
+reserve first; Order also adds it to the cart. Upgrades retain suitable installed cooling.
+Manufacturer goals, such as ARCTIC, include the selected cooler.
+An empty **Score Offset** has no upper score limit; enter a number to limit
+how far above the target results may score.
+Importing a job keeps your chosen budget reserve, including an empty field
+for no reserve. If no builds are found, the message reminds you to check this amount.
+
+Only one result is shown per CPU/GPU/motherboard combination, regardless of RAM
+variations. New build prices include the CPU cooler and a compatible PSU with 10% power
+headroom, accounting for overclocking. The price stays visible while scrolling.
+Storage and delivery are separate. Automatic builds use air-cooled GPUs; GPU
+radiators and complete custom loops still require manual planning.
+Old new-build results that omitted the PSU price are cleared on update;
+form settings and history are kept.
+
+GPU clocks are checked against the combined core/memory power and thermal model.
+The nominal core overclock point is not a hard limit. Set GPU Power (%) as shown
+and keep GPU memory at stock for new builds. Upgrades use its current memory clock.
 
 <a id="v102"></a>
 

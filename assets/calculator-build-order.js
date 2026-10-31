@@ -12,7 +12,7 @@
     function readRow(row) {
         var items = [];
         [['case', 'tdCase', null, 1], ['cpu', 'tdCpu', null, 1], ['ram', 'tdRamPart', 'tdramChannel', 4],
-            ['gpu', 'tdGpuPart', 'tdGpuCount', 2], ['motherboard', 'tdMobo', null, 1]].forEach(function (entry) {
+            ['gpu', 'tdGpuPart', 'tdGpuCount', 2], ['motherboard', 'tdMobo', null, 1], ['cooler', 'tdCoolerPart', null, 1], ['psu','tdPsuPart',null,1]].forEach(function (entry) {
             var name = cell(row, entry[1]);
             if (name) items.push({ kind: entry[0], name: name, quantity: entry[2] ? count(cell(row, entry[2]), entry[3]) : 1 });
         });

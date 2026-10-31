@@ -12,7 +12,7 @@
         var form = document.getElementById('formBuildMaker'); form.inputBuildMakerTarget3DMarkScoreOffset.value = '50000';
         BuildMakerGetBuilds();
         var table = document.getElementById('tableBuildMakerResults'), row = table.rows[1];
-        check(table.rows.length > 2, 'A real exact-parts build calculation generates multiple orderable variants.');
+        check(table.rows.length === 2, 'An exact CPU/GPU/board configuration produces one orderable variant.');
         check(table.rows[0].cells[13].textContent === 'Заказать', 'The result action header is Order in Russian.');
         var button = row.querySelector('.pcbs-order-button');
         check(button && button.textContent === 'Заказать', 'The original Save action is replaced by Order.');
@@ -27,12 +27,12 @@
         check(requests.length === 1, 'A second click while waiting cannot duplicate the build.');
         var order = requests[0], byKind = {};
         order.items.forEach(function (item) { byKind[item.kind] = item; });
-        check(order.version === 1 && typeof order.id === 'string' && order.items.length === 5, 'The bridge request contains all five displayed part roles.');
+        check(order.version === 1 && typeof order.id === 'string' && order.items.length === 7, 'The bridge request includes the PSU and cooler.');
         check(byKind.case.name === row.cells[0].textContent && byKind.cpu.name === row.cells[1].textContent && byKind.motherboard.name === row.cells[8].textContent,
             'Case, CPU and motherboard come from the clicked result row.');
         check(byKind.ram.name === row.cells[4].textContent && byKind.ram.quantity === Number(row.cells[2].textContent), 'RAM model and module count match the result.');
         check(byKind.gpu.name === row.cells[7].textContent && byKind.gpu.quantity === 2, 'Both recommended GPUs are requested.');
-        check(!byKind.psu && !byKind.storage, 'PSU and storage are never auto-ordered.');
+        check(byKind.psu && byKind.cooler && !byKind.storage, 'PSU and cooling are ordered; storage remains a separate purchase.');
         pcbsBuildOrderResult({ id: 'unrelated', ok: true, count: 99 });
         check(button.textContent === 'Добавляю...', 'Unrelated bridge replies cannot confirm another row.');
         pcbsBuildOrderResult({ id: order.id, ok: true, count: order.items.reduce(function (sum, item) { return sum + item.quantity; }, 0) });
@@ -41,7 +41,8 @@
         pcbsSetLanguage('en');
         check(button.textContent === 'In cart' && document.querySelector('.pcbs-order-status').textContent.indexOf('Parts added to cart:') === 0,
             'Confirmation and buttons switch languages live.');
-        var second = table.rows[2].querySelector('.pcbs-order-button'); second.click();
+        BuildMakerGetBuilds();
+        var second = table.rows[1].querySelector('.pcbs-order-button'); second.click();
         pcbsBuildOrderResult({ id: requests[1].id, ok: false, code: 'unavailable', count: 0 });
         check(!second.disabled && second.textContent === 'Order', 'Failure lets the user retry without marking the row purchased.');
         check(document.querySelector('.pcbs-order-status').textContent.indexOf('The cart was not changed.') >= 0, 'Availability failure explains that no partial order was made.');
@@ -57,7 +58,7 @@
         check(document.querySelector('.pcbs-order-status').textContent === '', 'A new calculation clears the previous order status.');
         var reduced = table.rows[1].querySelector('.pcbs-order-button'); reduced.click();
         var last = requests[requests.length - 1];
-        check(last.items.length === 2 && last.items[0].kind === 'cpu' && last.items[1].kind === 'gpu', 'Excluded case, RAM and motherboard are omitted from the order.');
+        check(last.items.length === 4 && last.items[0].kind === 'cpu' && last.items[1].kind === 'gpu', 'Excluded case, RAM and motherboard are omitted while PSU and cooler remain included.');
         pcbsBuildOrderResult({ id: last.id, ok: false, code: 'unavailable' });
         pcbsFlush(); sessionStorage.setItem('pcbs-fixture-state', JSON.stringify(pcbsCaptured));
         check(pcbsCaptured.tabs.divBuildMaker.rows[0][13].save === true, 'Order buttons retain backward-compatible result persistence.');

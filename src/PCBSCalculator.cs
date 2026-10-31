@@ -131,6 +131,7 @@ namespace PCBSCalculatorHelper
                 harmony.Patch(emailPane, null, new HarmonyMethod(typeof(CalculatorPlugin), "OnEmailPaneUpdated"), null, null, null);
                 purchaseByClick.Install(harmony);
                 workbench.Install(harmony);
+                OperatingSystemInstallation.Install(harmony);
                 inventorySorting.Install(harmony);
                 shopEnhancements.Install(harmony);
                 Logger.LogInfo("Installed workbench automation and inventory sorting hooks.");

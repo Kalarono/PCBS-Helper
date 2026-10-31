@@ -23,7 +23,7 @@ namespace PCBSCalculatorHelper
             { "Input protection could not be initialized. See BepInEx/LogOutput.log.", "Не удалось включить защиту ввода. Подробнее: BepInEx/LogOutput.log." },
             { "The calculator browser stopped. Restart the game to retry.", "Браузер калькулятора остановился. Перезапустите игру." },
             { "Could not open the calculator. See BepInEx/LogOutput.log.", "Не удалось открыть калькулятор. Подробнее: BepInEx/LogOutput.log." },
-            { "Install All Apps", "Устанавливать все приложения" }, { "Instant 3DMark", "Мгновенный 3DMark" },
+            { "Instant Utility Installation", "Моментальная установка утилит" }, { "Instant 3DMark", "Мгновенный 3DMark" },
             { "Click Purchase", "Покупка по клику" },
             { "Automatic thermal paste", "Автоматическая термопаста" },
             { "Shop inventory counters", "Наличие деталей в магазине" },

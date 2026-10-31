@@ -29,7 +29,7 @@ namespace PCBSCalculatorHelper
             if (id == null || !Regex.IsMatch(id, "^[a-zA-Z0-9-]{1,96}$") || Number(request["version"]) != 1)
                 throw new FormatException("Invalid build order ID or version.");
             JSONNode items = request["items"];
-            if (items.Type != JSONNode.NodeType.Array || items.Count < 1 || items.Count > 5)
+            if (items.Type != JSONNode.NodeType.Array || items.Count < 1 || items.Count > 7)
                 throw new FormatException("Invalid build order items.");
             List<BuildOrderItem> result = new List<BuildOrderItem>();
             HashSet<string> kinds = new HashSet<string>(StringComparer.Ordinal);
@@ -40,7 +40,7 @@ namespace PCBSCalculatorHelper
                 string kind = node["kind"].Value as string, name = node["name"].Value as string;
                 int quantity = Number(node["quantity"]);
                 int maximum = kind == "ram" ? 4 : kind == "gpu" ? 2 : 1;
-                if (kind != "case" && kind != "cpu" && kind != "ram" && kind != "gpu" && kind != "motherboard")
+                if (kind != "case" && kind != "cpu" && kind != "ram" && kind != "gpu" && kind != "motherboard" && kind != "cooler" && kind != "psu")
                     throw new FormatException("Unsupported build part.");
                 if (!kinds.Add(kind) || name == null || name.Trim().Length == 0 || name.Length > 256 || quantity < 1 || quantity > maximum)
                     throw new FormatException("Invalid build part or quantity.");
@@ -69,6 +69,8 @@ namespace PCBSCalculatorHelper
         {
             return kind == "case" ? part.m_type == PartDesc.Type.CASE :
                 kind == "motherboard" ? part.m_type == PartDesc.Type.MOTHERBOARD :
+                kind == "cooler" ? part.m_type == PartDesc.Type.AIR_COOLER || part.m_type == PartDesc.Type.LIQUID_COOLER :
+                kind == "psu" ? part.GetType().Name == "PartDescPSU" :
                 kind == "cpu" ? part is PartDescCPU : kind == "gpu" ? part is PartDescGPU :
                 kind == "ram" && part is PartDescRAM;
         }

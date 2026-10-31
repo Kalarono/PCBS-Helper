@@ -33,23 +33,29 @@
     }
     function resultRows(page, value, expected) {
         var saved = tab(value);
+        var optional = {cpuMhz:'tdCpuMhz',gpuMhz:'tdGpuMhz',cooler:'tdCoolerPart',cpuThermal:'tdCpuThermal',gpuVoltage:'tdGpuVoltage'};
+        // Previous build prices omitted PSUs and could contain incomplete water
+        // loops. Keep the form/history, but recalculate those obsolete results.
+        if (page === 'divBuildMaker' && expected.indexOf('psu') >= 0 && saved.columns.indexOf('psu') < 0) return [];
+        function blank(name) { return {text:'',css:optional[name] || '',save:false}; }
+        function extend(row) { return row.concat(expected.slice(row.length).map(blank)); }
         if (saved.columns.length) {
             // Clock columns were added after 1.0.2. Keep previous results, leaving
             // their unknown planned frequencies blank until the next calculation.
-            if (expected.some(function (name) { return saved.columns.indexOf(name) < 0 && name !== 'cpuMhz' && name !== 'gpuMhz'; })) return [];
+            if (expected.some(function (name) { return saved.columns.indexOf(name) < 0 && !optional[name]; })) return [];
             return saved.rows.filter(function (row) { return row.length === saved.columns.length; }).map(function (row) {
-                return expected.map(function (name) { return row[saved.columns.indexOf(name)] || { text: '', css: name === 'cpuMhz' ? 'tdCpuMhz' : 'tdGpuMhz', save: false }; });
+                return expected.map(function (name) { return row[saved.columns.indexOf(name)] || blank(name); });
             });
         }
         // Legacy upgrade rows use GPU count / cooling. The first independent UI
         // temporarily used RAM MHz / GPU count with the same nine-column width.
-        if (page === 'divBuildUpgrader') return saved.rows.filter(function (row) { return row.length === 9 || row.length === expected.length; }).map(function (row) {
+        if (page === 'divBuildUpgrader') return saved.rows.filter(function (row) { return row.length === 9 || row.length === 11 || row.length === 13 || row.length === expected.length; }).map(function (row) {
             if (/^\d+$/.test(row[1].text) && Number(row[1].text) >= 100 && !/\btdGpuCount\b/.test(row[1].css))
                 row = [row[0], row[2], { text: '', css: 'tdGpuType', save: false }].concat(row.slice(3));
-            return row.length === 9 && expected.length === 11 ? row.concat([{ text: '', css: 'tdCpuMhz', save: false }, { text: '', css: 'tdGpuMhz', save: false }]) : row;
+            return extend(row);
         });
-        if (page === 'divBuildMaker' && expected.length === 16) return saved.rows.filter(function (row) { return row.length === 14 || row.length === 16; }).map(function (row) {
-            return row.length === 14 ? row.concat([{ text: '', css: 'tdCpuMhz', save: false }, { text: '', css: 'tdGpuMhz', save: false }]) : row;
+        if (page === 'divBuildMaker' && expected.length >= 16) return saved.rows.filter(function (row) { return row.length === 14 || row.length === 16 || row.length === expected.length; }).map(function (row) {
+            return extend(row);
         });
         return saved.rows.filter(function (row) { return row.length === expected.length; });
     }

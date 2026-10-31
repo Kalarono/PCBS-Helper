@@ -59,7 +59,25 @@ namespace PCBSCalculatorHelper
             constants["minFps"] = OverclockConstants.s_min3DMarkFPS;
             constants["baseClock"] = OverclockConstants.s_defaultBaseClock;
             constants["maxMultiplierPercent"] = OverclockConstants.s_maxCPUMultiplierPercentage;
-            foreach (string group in new string[] { "cpus", "gpus", "mobos", "pcCases", "rams", "storages" }) catalog[group] = Obj();
+            JSONNode heat = Obj(); constants["heat"] = heat;
+            heat["referenceCooling"] = HeatConstants.s_fanBaseCooling + OverclockConstants.s_refCpuCoolingAF * HeatConstants.s_fanAirFlowToCPUCoolingFactor;
+            heat["idleFloor"] = HeatConstants.s_maxCPUCoolingFactorToIdle;
+            heat["room"] = HeatConstants.s_roomTemperature;
+            heat["psuLoad"] = HeatConstants.s_psuLoadTemp;
+            heat["gpuWattToHeat"] = HeatConstants.s_gpuWattToCelsius;
+            heat["caseHeat"] = HeatConstants.s_componentHeatToCaseHeat;
+            heat["feedbackThreshold"] = HeatConstants.s_caseTempFeedbackThreshold;
+            heat["feedbackFactor"] = HeatConstants.s_caseTempFeedbackFactor;
+            heat["gpuOverclockPower"] = OverclockConstants.s_gpuOverclockPowerIncrease;
+            heat["gpuUnderclockPower"] = OverclockConstants.s_gpuUnderclockPowerDecrease;
+            // Keep the source constants in exported catalogs so offline checks
+            // can initialize the native game model with these same values.
+            JSONNode nativeHeat = Obj(); heat["native"] = nativeHeat;
+            foreach (Type type in new[] { typeof(HeatConstants), typeof(OverclockConstants) })
+                foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Static))
+                    if (field.FieldType == typeof(float) || field.FieldType == typeof(int))
+                        nativeHeat[field.Name] = Convert.ToSingle(field.GetValue(null), CultureInfo.InvariantCulture);
+            foreach (string group in new string[] { "cpus", "gpus", "mobos", "pcCases", "rams", "storages", "coolers", "psus" }) catalog[group] = Obj();
             foreach (PartDesc part in PartsDatabase.GetAllParts())
             {
                 if (part == null || part.m_class == PartDesc.Class.DUMMY || part.m_isPlatformLocked || (part.m_isDLC && !part.m_isDLCInstalled)) continue;
@@ -67,8 +85,11 @@ namespace PCBSCalculatorHelper
                 PartDesc mobo = part.GetType().Name == "PartDescMotherboard" ? part : null;
                 PartDesc pcCase = part.GetType().Name == "PartDescCase" ? part : null;
                 PartDescRAM ram = part as PartDescRAM;
+                PartDesc cooler = part.GetType().Name == "PartDescCooler" ? part : null;
+                if (part.m_type != PartDesc.Type.AIR_COOLER && part.m_type != PartDesc.Type.LIQUID_COOLER) cooler = null;
                 PartDesc disk = part.GetType().Name == "PartDescStorage" ? part : null;
-                string group = cpu != null ? "cpus" : gpu != null ? "gpus" : mobo != null ? "mobos" : pcCase != null ? "pcCases" : ram != null ? "rams" : disk != null ? "storages" : null;
+                PartDesc psu = part.GetType().Name == "PartDescPSU" ? part : null;
+                string group = cpu != null ? "cpus" : gpu != null ? "gpus" : mobo != null ? "mobos" : pcCase != null ? "pcCases" : ram != null ? "rams" : disk != null ? "storages" : cooler != null ? "coolers" : psu != null ? "psus" : null;
                 if (group == null) continue;
                 JSONNode item = Obj(); string name = Name(part);
                 item["id"] = part.m_id; item["fullName"] = name; item["manufacturer"] = part.m_manufacturer ?? "";
@@ -83,6 +104,8 @@ namespace PCBSCalculatorHelper
                 {
                     item["socket"] = Socket(cpu.m_socket); item["baseMhz"] = cpu.m_freqMhz;
                     item["maxMhz"] = cpu.m_maxFreqMhz; item["multiplierStep"] = cpu.m_multiplierStep;
+                    item["loadTemp"] = cpu.GetLoadTemp(); item["idleTemp"] = cpu.GetIdleTemp(); item["dies"] = cpu.m_numberDies;
+                    item["thermalLimit"] = cpu.m_thermalLimit; item["voltage"] = cpu.m_voltage; item["maxVoltage"] = cpu.m_maxVoltage;
                     item["maxChannels"] = cpu.m_maxMemoryChannels; item["defaultRamMhz"] = cpu.m_defaultMemorySpeed;
                     item["watts"] = cpu.m_wattage; item["canOverclock"] = cpu.m_canOverclock ? "Yes" : "No";
                     JSONNode coefficients = Arr(); coefficients.Add(Float(cpu, "m_coefCoreClock")); coefficients.Add(Float(cpu, "m_coefMemChannel"));
@@ -93,6 +116,9 @@ namespace PCBSCalculatorHelper
                     item["chipset"] = gpu.m_chipSet; item["vendor"] = gpu.m_chipSetBrand; item["vram"] = gpu.m_vramGb;
                     item["baseMhz"] = gpu.m_coreClockFreq; item["memoryMhz"] = gpu.m_memClockFreq;
                     item["maxMhz"] = gpu.m_maxCoreClockFreq; item["tunerMaxMhz"] = gpu.CoreClockMaxTunerFreq;
+                    item["maxMemoryMhz"] = gpu.m_maxMemClockFreq; item["loadTemp"] = gpu.GetLoadInternalTemp(); item["thermalLimit"] = gpu.m_thermalLimit;
+                    item["maxVoltageIncrease"] = gpu.m_maxVoltageIncrease;
+                    item["aio"] = gpu.m_isAIO;
                     item["watts"] = gpu.m_wattage; item["length"] = gpu.m_length; item["slots"] = gpu.m_slotSize;
                     item["multiGpu"] = gpu.m_doubleGPU; item["sli"] = gpu.m_useSLI;
                     item["gpuType"] = part.m_type == PartDesc.Type.WATER_COOLED_GPU ? "Water" : "Air";
@@ -110,11 +136,28 @@ namespace PCBSCalculatorHelper
                 }
                 if (pcCase != null)
                 {
+                    item["maxCoolerHeight"] = Int(pcCase, "m_maxCPUFanHeight"); item["radiator120"] = Int(pcCase, "m_maxRadiatorLength120mm");
+                    item["radiator140"] = Int(pcCase, "m_maxRadiatorLength140mm"); item["cooling"] = Float(pcCase, "m_cooling");
+                    item["maxPsuLength"] = Int(pcCase, "m_maxPSULength");
+                    JSONNode psuSizes = Arr(); foreach (object size in (IEnumerable)Field(pcCase, "m_PSUSize")) psuSizes.Add(size.ToString()); item["psuSizes"] = psuSizes;
                     JSONNode sizes = Arr(); foreach (object size in (IEnumerable)Field(pcCase, "m_motherboardTypes")) sizes.Add(size.ToString());
                     item["sizes"] = sizes; item["maxGpuLength"] = Int(pcCase, "m_maxGPULength"); AddSlots(part, item, cached);
                 }
                 if (ram != null) { item["sizeGb"] = ram.m_sizeGb; item["speedMhz"] = ram.m_speedMhz; item["ramType"] = ram.m_ramType.ToString(); }
+                if (cooler != null)
+                {
+                    item["water"] = part.m_type == PartDesc.Type.LIQUID_COOLER;
+                    item["height"] = Int(cooler, "m_height"); item["size"] = Int(cooler, "m_size"); item["slots"] = Int(cooler, "m_slots");
+                    float airflow = Float(cooler, "m_airflow");
+                    item["airflow"] = airflow;
+                    item["cooling"] = (HeatConstants.s_fanBaseCooling + airflow * HeatConstants.s_fanAirFlowToCPUCoolingFactor) *
+                        (part.m_type == PartDesc.Type.LIQUID_COOLER ? HeatConstants.s_waterCoolingBonus : 1f);
+                    item["caseCooling"] = airflow * HeatConstants.s_fanAirFlowToCaseCoolingFactor;
+                    JSONNode sockets = Arr(); foreach (CpuSocket socket in (IEnumerable)Field(Field(cooler, "m_socketRequirement"), "m_sockets")) sockets.Add(Socket(socket));
+                    item["sockets"] = sockets;
+                }
                 if (disk != null) { item["sizeGb"] = Int(disk, "m_sizeGb"); item["heatsink"] = Float(disk, "m_heatsinkThickness"); item["storageType"] = part.m_type.ToString(); }
+                if (psu != null) { item["watts"] = Int(psu, "m_wattage"); item["length"] = Int(psu, "m_length"); item["size"] = Field(psu, "m_size").ToString(); }
                 // IDs disambiguate otherwise identical names; do not silently overwrite a model.
                 if (((Dictionary<string, JSONNode>)catalog[group]).ContainsKey(name)) name += " [" + part.m_id + "]";
                 item["fullName"] = name; catalog[group][name] = item;

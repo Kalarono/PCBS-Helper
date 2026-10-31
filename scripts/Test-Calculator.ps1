@@ -16,8 +16,15 @@ $references = @('Assembly-CSharp-firstpass.dll','UnityEngine.dll','UnityEngine.C
 if ($LASTEXITCODE -ne 0) { throw 'Game score oracle could not compile.' }
 & $oracle $managedPath $fixturePath (Join-Path $projectPath 'build\game-catalog\game-score-oracle.json')
 if ($LASTEXITCODE -ne 0) { throw 'Game score oracle failed.' }
+$thermalOracle = Join-Path $projectPath 'build\GameThermalOracle.exe'
+& $compiler /nologo /target:exe "/out:$thermalOracle" $references (Join-Path $projectPath 'tests\GameThermalOracle.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Game thermal oracle could not compile.' }
+& $thermalOracle $managedPath $fixturePath (Join-Path $projectPath 'build\game-catalog\game-thermal-oracle.json')
+if ($LASTEXITCODE -ne 0) { throw 'Game thermal oracle failed.' }
 $node = Get-Command node -ErrorAction Stop
 & $node.Source (Join-Path $projectPath 'tests\HelperCalculatorEngineTests.js')
 if ($LASTEXITCODE -ne 0) { throw 'Independent calculator tests failed.' }
 & $node.Source (Join-Path $projectPath 'tests\CalculatorOverclockTests.js')
 if ($LASTEXITCODE -ne 0) { throw 'Overclock quest tests failed.' }
+& $node.Source (Join-Path $projectPath 'tests\CalculatorThermalTests.js')
+if ($LASTEXITCODE -ne 0) { throw 'CPU cooling selection tests failed.' }

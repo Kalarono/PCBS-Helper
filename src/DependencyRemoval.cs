@@ -21,6 +21,7 @@ namespace PCBSCalculatorHelper
         private readonly List<PendingPart> removed = new List<PendingPart>();
         private readonly List<CPin> openedPins = new List<CPin>();
         private bool fullLoopBlocks;
+        private bool pinAnimationPending;
         private readonly List<string> planTrace = new List<string>();
         private readonly RemovalHold hold = new RemovalHold();
         private static readonly FieldInfo Proxy = AccessTools.Field(typeof(ComponentPC), "m_proxy");
@@ -160,6 +161,7 @@ namespace PCBSCalculatorHelper
             if (pin != null && pin.IsAnimating()) return false;
             if (pin != null) pin = null;
             fullLoopBlocks = false;
+            pinAnimationPending = false;
             planTrace.Clear();
             if (InstallationActive && !HasPlacementPreview())
             {
@@ -169,6 +171,7 @@ namespace PCBSCalculatorHelper
             Node next = DependencyOrder.Next(new Node(InstallationActive ? (UnityEngine.Object)placement.Slot : target), Ready, Blockers, new NodeComparer());
             if (next == null)
             {
+                if (pinAnimationPending) return false;
                 if (restoring) SkipRestore(); else Stop();
                 return false;
             }
@@ -278,6 +281,7 @@ namespace PCBSCalculatorHelper
             CPin latch = node.Item as CPin;
             if (latch != null)
             {
+                if (latch.IsAnimating()) pinAnimationPending = true;
                 bool blocked = IsPinBlocked(latch);
                 Trace(Describe(latch) + " open=" + latch.IsOpen() + " wantOpen=" + node.Open +
                     " animating=" + latch.IsAnimating() + " blocked=" + blocked);
@@ -414,6 +418,14 @@ namespace PCBSCalculatorHelper
             if (latch != null)
             {
                 bool open = slot == null || Array.IndexOf(slot.closePins, latch) < 0;
+                // AIO placement targets a case/radiator slot. Its forwarded CPU
+                // socket blocker belongs to the pump's cooler slot instead.
+                if (InstallationActive && (latch is AM3Slot || latch is LGASlot))
+                {
+                    PartDesc.Type type = placement.Part.GetPart().m_type;
+                    if (type == PartDesc.Type.AIR_COOLER || type == PartDesc.Type.LIQUID_COOLER || type == PartDesc.Type.CPU_BLOCK)
+                        open = false;
+                }
                 return new Node(latch, open);
             }
             PowerConnector connector = blocker as PowerConnector;

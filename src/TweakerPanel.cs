@@ -24,7 +24,7 @@ namespace PCBSCalculatorHelper
         private float logicalHeight = 692;
         private readonly float[] rowHeights = new float[12];
         private static readonly string[] Labels = {
-            "Install All Apps", "Instant 3DMark", "Click Purchase", "Show Diagnose Objectives", "Show Hidden Objectives",
+            "Instant Utility Installation", "Instant 3DMark", "Click Purchase", "Show Diagnose Objectives", "Show Hidden Objectives",
             "Part stock counters", "Automatic thermal paste", "Remove dependencies while holding LMB",
             "Replace all customizable cables", "Inventory sorting", "Build Helper", "Will it Run? Helper"
         };
@@ -51,7 +51,8 @@ namespace PCBSCalculatorHelper
                 try { legacy = new ConfigFile(legacyPath, false); legacy.SaveOnConfigSet = false; }
                 catch (Exception ex) { log.LogWarning("Could not import old Cheat Menu settings: " + ex.Message); }
             }
-            allApps = config.Bind("Tweaker", "InstallAllApps", Legacy(legacy, "InstallAllApps"), "Install All Apps.");
+            allApps = config.Bind("Tweaker", "InstallAllApps", Legacy(legacy, "InstallAllApps"),
+                "Install all applications through Add/Remove Programs and install the OS instantly without a USB drive. Hardware and storage checks remain active.");
             instant3DMark = config.Bind("Tweaker", "Instant3DMark", Legacy(legacy, "Instant3DMark"), "Instant 3DMark.");
             clickPurchase = config.Bind("Tweaker", "ClickPurchase", false,
                 "Left-click a part in PC stats opened from an email to add one new part to its shop cart.");
@@ -65,6 +66,7 @@ namespace PCBSCalculatorHelper
         public void Apply()
         {
             DebugVars.s_installAllApps = allApps.Value;
+            OperatingSystemInstallation.Enabled = allApps.Value;
             DebugVars.s_instant3DMark = instant3DMark.Value;
             DebugVars.s_showDiagnoseObjectives = diagnose.Value;
             DebugVars.s_showHiddenObjectives = hidden.Value;

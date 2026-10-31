@@ -3,7 +3,7 @@
     function check(value, message) { checks++; if (!value) throw new Error(message); }
     // Emulate the native career availability snapshot at the screenshot's level.
     var availability = {};
-    ['cpus','gpus','mobos','pcCases','rams','storages'].forEach(function (group) {
+    ['cpus','gpus','mobos','pcCases','rams','storages','coolers'].forEach(function (group) {
         Object.keys(sourceData[group]).forEach(function (key) {
             var p = sourceData[group][key]; availability[p.id] = p.level <= 16;
         });
@@ -36,14 +36,16 @@
     };
     first.querySelector('.pcbs-order-button').click();
     check(order.items.some(function (p) { return p.name === cpu; }) && order.items.some(function (p) { return p.name === gpu; }), 'Added frequency columns do not change cart model names.');
+    check(order.items.some(function (p) { return p.kind === 'cooler' && p.name === first.querySelector('.tdCoolerPart').textContent; }), 'The recommended cooler is included in the order.');
+    check(first.querySelector('.tdCpuThermal').textContent.indexOf('°C') >= 0, 'The full-load CPU estimate and voltage are visible.');
     job = { tab: 'divBuildUpgrader', jobId: 104, title: 'Разгон установленного ПК', budget: 2000, target: 0,
         system: { cpu: cpu, gpus: [gpu], mobo: board, pcCase: pcCase, ramSticks: 1,
-            ramSpeed: Number(first.querySelector('.tdRamSpeed').textContent), ram: [], m2s: [] },
+            ramSpeed: Number(first.querySelector('.tdRamSpeed').textContent), cooler: first.querySelector('.tdCoolerPart').textContent, ram: [], m2s: [] },
         fields: { targetCpuMhz: 4700, targetGpuMhz: 2071, fixedCpu: cpu, fixedGpu: gpu, fixedMobo: board },
         requirements: [], brands: [], notes: [] };
     pcbsImportJob(job); BuildUpgraderGetUpgrades();
     var upgrade = document.getElementById('formBuildUpgrader'), upgrades = document.getElementById('tableBuildUpgraderResults');
-    check(upgrades.rows.length > 1 && upgrades.rows[1].querySelector('.tdPrice').textContent === '0', 'A suitable current PC receives a zero-purchase OC plan.');
+    check(upgrades.rows.length > 1 && upgrades.rows[1].querySelector('.tdPrice').textContent === '$0', 'A suitable current PC receives a zero-purchase OC plan.');
     check(upgrades.rows[1].querySelector('.tdCpu').textContent === cpu && upgrades.rows[1].querySelector('.tdGpuPart').textContent === gpu, 'The OC plan names retained parts as well as replacement parts.');
     check(upgrades.rows[1].querySelector('.tdCpuMhz').textContent === '4700' && upgrades.rows[1].querySelector('.tdGpuMhz').textContent === '2071', 'Upgrade result shows the actual target clocks.');
     upgrade.inputBuildUpgraderTargetCpuMhz.value = '100000'; BuildUpgraderGetUpgrades();

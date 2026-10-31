@@ -63,6 +63,7 @@ internal static class DependencyInstallationTests
         CloseDriveTrayBeforePanels();
         SkipBlockedTrayClosure();
         KeepSocketClosedAfterCooler();
+        CloseSocketForAioRadiator();
         RetainRemovalBehaviour();
         Console.WriteLine("Dependency installation and restoration: " + checks + " assertions passed.");
     }
@@ -118,6 +119,23 @@ internal static class DependencyInstallationTests
         Check(!r.Queue.Active && tray.Open && hdd.GetComponent() != null && !hdd.GetComponent().m_isPlaceholder,
             "A native-blocked latch is skipped without removing the installed drive or forcing the animation.");
         Check(r.Owner.Notices.Count == 0, "A skipped latch remains silent on the installation HUD.");
+    }
+
+    private static void CloseSocketForAioRadiator()
+    {
+        foreach (CPin socket in new CPin[] { new LGASlot { Open = true }, new AM3Slot { Open = true } })
+        {
+            Rig r = new Rig(); Slot aio = r.Slot("case radiator slot", Slot.SlotType.CASE_COOLER);
+            // The case slot forwards a CPU blocker, but does not own closePins.
+            aio.blockedBy.Add(socket); r.Begin(aio, "AIO"); r.Ctrl.selectedItem.Type = PartDesc.Type.LIQUID_COOLER;
+            UnityEngine.Time.deltaTime = 0.31f;
+            socket.Animating = true; r.Tick();
+            Check(r.Queue.Active && socket.Open, "The planner waits for an existing socket animation instead of cancelling the installation.");
+            socket.Animating = false; r.Tick();
+            Check(!socket.Open && r.Queue.Active, "AIO installation closes the forwarded CPU socket rather than trying to open it.");
+            Check(r.Step().Slot == aio, "The AIO proceeds into the native radiator installation after socket closure.");
+            r.Finish(); Check(!r.Queue.Active && !socket.Open, "The AIO leaves its CPU retention mechanism closed.");
+        }
     }
 
     private static void RestorePartsInReverseOrder()

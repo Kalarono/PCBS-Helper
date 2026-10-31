@@ -110,10 +110,12 @@ public class ComponentPC : UnityEngine.MonoBehaviour
 public class PartInstance
 {
     public readonly string Id;
+    public PartDesc.Type Type;
     public PartInstance(string id) { Id = id; }
     public string GetPartId() { return Id; }
+    public PartDesc GetPart() { return new PartDesc { m_id = Id, m_type = Type }; }
 }
-public class PartDesc { public string m_id, m_uiName; }
+public class PartDesc { public enum Type { None, AIR_COOLER, LIQUID_COOLER, CPU_BLOCK } public Type m_type; public string m_id, m_uiName; }
 public class CPin : CBlocker
 {
     public bool Open, Animating;
@@ -128,8 +130,8 @@ public class Pin : CPin
     public CBlocker[] blockedBy = new CBlocker[0], m_BlockedByClosedPins = new CBlocker[0], m_BlockedByOpenPins = new CBlocker[0], m_ClosedBlockedByOpenPins = new CBlocker[0];
     public override bool IsBlocked() { return blockedBy.Any(x => x.IsBlocking(null)); }
 }
-public class AM3Slot : CPin { public CBlocker[] m_blockedBy; public override bool IsBlocked() { return false; } }
-public class LGASlot : CPin { public CBlocker[] m_blockedBy; public override bool IsBlocked() { return false; } }
+public class AM3Slot : CPin { public CBlocker[] m_blockedBy; public override bool IsBlocked() { return false; } public override bool IsBlocking(Slot slot) { return slot != null && slot.m_slotType == Slot.SlotType.CPU ? !Open : Open; } }
+public class LGASlot : CPin { public CBlocker[] m_blockedBy; public override bool IsBlocked() { return false; } public override bool IsBlocking(Slot slot) { return slot != null && slot.m_slotType == Slot.SlotType.CPU ? !Open : Open; } }
 public class RAMSlot : CBlocker
 {
     public UnityEngine.GameObject pin1, pin2;

@@ -12,7 +12,7 @@ internal class PartDesc
         PipeConnectors, Coolant, Monitors, Keyboards, Mice, MousePads, Headsets, Microphones, All, None
     }
     internal string m_id;
-    internal enum Type { CASE, MOTHERBOARD, OTHER }
+    internal enum Type { CASE, MOTHERBOARD, AIR_COOLER, LIQUID_COOLER, OTHER }
     internal Type m_type = Type.OTHER;
     internal enum Class { NORMAL, DUMMY }
     internal Class m_class = Class.NORMAL;
@@ -23,6 +23,7 @@ internal class PartDesc
     internal bool IsOneTimePurchase() { return OneTime; }
 }
 internal sealed class PartDescCPU : PartDesc { }
+internal sealed class PartDescPSU : PartDesc { }
 internal sealed class PartDescGPU : PartDesc { }
 internal sealed class PartDescRAM : PartDesc { internal int m_sizeGb = 0, m_speedMhz = 0; }
 internal sealed class ShopEntry

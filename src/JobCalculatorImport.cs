@@ -50,7 +50,7 @@ namespace PCBSCalculatorHelper
             if (pc != null)
             {
                 system["pcCase"] = Name(pc.caseID); system["cpu"] = Name(pc.cpuID); system["mobo"] = Name(pc.motherboardID);
-                system["cooler"] = Name(pc.cpuCoolerID); system["psu"] = Name(pc.psuID);
+                system["cooler"] = Name(pc.GetActiveCPUCooler()); system["psu"] = Name(pc.psuID);
                 JSONNode gpus = Arr(), m2s = Arr(), ram = Arr(), disks = Arr();
                 int sticks = 0, baseRamSpeed = 0;
                 foreach (PartInstance part in pc.pciSlots ?? new PartInstance[0])
@@ -78,6 +78,7 @@ namespace PCBSCalculatorHelper
                     PartDesc part = instance.GetPart();
                     if (part is PartDescCPU || part is PartDescGPU || part.m_type == PartDesc.Type.CASE || part.m_type == PartDesc.Type.MOTHERBOARD) continue;
                     JSONNode item = Obj(); item["manufacturer"] = part.m_manufacturer; item["fullName"] = Clean(part.m_uiName);
+                    item["type"] = part.m_type.ToString();
                     otherParts.Add(item);
                 }
                 system["otherParts"] = otherParts;
@@ -128,12 +129,16 @@ namespace PCBSCalculatorHelper
                 }
             }
             Add(notes, ru
-                ? "Данные задания перенесены. Подберите сборку или апгрейд, затем проверьте остальные условия ниже. Ремонт, накопители и охлаждение нужно учесть отдельно. Цены указаны за новые детали."
-                : "Job data imported. Find builds or upgrades, then review the remaining objectives below. Account for repairs, storage and cooling separately. Prices are for new parts.");
+                ? "Данные задания перенесены. Подберите сборку или апгрейд, затем проверьте остальные условия ниже. Цены указаны за новые детали; накопитель, ремонт и доставка учитываются отдельно. В новой сборке БП и кулер входят в цену."
+                : "Job data imported. Find builds or upgrades, then review the remaining objectives below. Prices are for new parts; account for storage, repairs and delivery separately. New builds include PSU and cooler costs.");
             if (targets.CpuMhz > 0 || targets.GpuMhz > 0)
                 Add(notes, ru
-                    ? "Подбор учитывает частоты задания и пределы разгона из игры без бонуса удачного экземпляра. Частоты из результата выставьте вручную: для CPU используется базовая частота 100 МГц. Напряжение, охлаждение и стабильность проверьте в BIOS / GPU Tuner и OCCT. Ватты в таблице указаны без разгона."
-                    : "Clock targets use the game's overclock limits without a silicon lottery bonus. Set the result clocks manually; CPU base clock is 100 MHz. Check voltage, cooling and stability in BIOS / GPU Tuner and OCCT. Table watts exclude overclocking.");
+                    ? "Подбор учитывает частоты задания и пределы разгона из игры без бонуса удачного экземпляра. Частоты из результата выставьте вручную: для CPU используется базовая частота 100 МГц. Напряжение, охлаждение и стабильность проверьте в BIOS / GPU Tuner и OCCT. Питание GPU выставьте по таблице, память оставьте на заводской частоте. Потребление учитывает разгон."
+                    : "Clock targets use the game's overclock limits without a silicon lottery bonus. Set the result clocks manually; CPU base clock is 100 MHz. Check voltage, cooling and stability in BIOS / GPU Tuner and OCCT. Set GPU power as shown and keep GPU memory at stock. Power estimates include overclocking.");
+            if (targets.CpuMhz > 0)
+                Add(notes, ru
+                    ? "Для цели по частоте CPU в результат включён кулер, совместимый с сокетом и корпусом. Температура рассчитана под полной нагрузкой с запасом 5 °C, без бонуса удачного экземпляра и дополнительных вентиляторов корпуса. Цена кулера входит в стоимость и сначала вычитается из резерва. При апгрейде подходящий установленный кулер сохраняется."
+                    : "CPU clock plans include a cooler that fits the socket and case. Full-load temperature keeps a 5 °C margin, without a silicon lottery bonus or extra case fans. Cooler cost is included in the price and deducted from the reserve first. Upgrades retain suitable installed cooling.");
             if (build) Add(notes, ru ? "Reserved Budget = 400 — стандартный резерв калькулятора на БП, охлаждение и накопители. Измените его под выбранные детали." : "Reserved Budget = 400 is the calculator's default allowance for PSU, cooling and storage. Adjust it for your parts.");
             return result;
         }

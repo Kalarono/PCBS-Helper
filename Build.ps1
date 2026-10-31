@@ -50,6 +50,11 @@ foreach ($readmeName in @('README.md', 'README_EN.md', 'README.txt', 'README_EN.
 Copy-Item -LiteralPath (Join-Path $projectPath 'CHANGELOG.md') -Destination $packagePath -Force
 Copy-Item -LiteralPath (Join-Path $projectPath 'DEVELOPMENT.md') -Destination $packagePath -Force
 if ($Test) {
+    $osTests = Join-Path $buildPath 'OperatingSystemInstallationTests.exe'
+    & $compilerPath /nologo /target:exe "/out:$osTests" "/reference:$(Join-Path $managedPath 'Assembly-CSharp-firstpass.dll')" "/reference:$(Join-Path $managedPath 'UnityEngine.CoreModule.dll')" "/reference:$(Join-Path $GamePath 'BepInEx\core\0Harmony.dll')" (Join-Path $projectPath 'src\OperatingSystemInstallation.cs') (Join-Path $projectPath 'tests\OperatingSystemInstallationTests.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'OS installation tests could not compile.' }
+    & $osTests $managedPath (Join-Path $GamePath 'BepInEx\core')
+    if ($LASTEXITCODE -ne 0) { throw 'OS installation tests failed.' }
     $workbenchTests = Join-Path $buildPath 'WorkbenchOrderTests.exe'
     & $compilerPath /nologo /target:exe "/out:$workbenchTests" (Join-Path $projectPath 'src\DependencyOrder.cs') (Join-Path $projectPath 'src\InventoryOrder.cs') (Join-Path $projectPath 'tests\WorkbenchOrderTests.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Workbench ordering tests could not compile.' }

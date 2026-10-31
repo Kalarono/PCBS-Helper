@@ -43,4 +43,15 @@ check(rows.length === 1 && rows[0].length === 11 && rows[0][1].text === '2', 'Le
 const makerColumns = ['case','cpu','ramChannels','ramSpeed','ram','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts','action','cpuMhz','gpuMhz'];
 rows = codec.resultRows(codec.pages[1], { rows: [makerColumns.slice(0, 14).map(cell)] }, makerColumns);
 check(rows.length === 1 && rows[0][13].text === 'action' && rows[0][14].text === '', 'The old build layout retains the order action at its original index.');
+const thermalColumns = makerColumns.concat(['cooler','cpuThermal']);
+rows = codec.resultRows(codec.pages[1], {columns:makerColumns, rows:[makerColumns.map(cell)]}, thermalColumns);
+check(rows[0].length === 18 && rows[0][14].text === 'cpuMhz' && rows[0][16].css === 'tdCoolerPart', 'Old named rows retain clocks when cooling columns are added.');
+rows = codec.resultRows(codec.pages[1], {rows:[makerColumns.map(cell)]}, thermalColumns);
+check(rows[0].length === 18 && rows[0][17].text === '', 'Old unnamed OC builds leave the unknown thermal estimate blank.');
+rows = codec.resultRows(codec.pages[2], {rows:[legacy]}, clockColumns.concat(['cooler','cpuThermal']));
+check(rows[0].length === 13 && rows[0][1].text === '1 + 1', 'Legacy upgrade results survive both clock and thermal schema additions.');
+const pricedColumns=thermalColumns.concat(['psu','gpuVoltage']);
+check(codec.resultRows(codec.pages[1],{columns:thermalColumns,rows:[thermalColumns.map(cell)]},pricedColumns).length===0,'Results with old partial prices are cleared instead of being presented as PSU-inclusive totals.');
+rows=codec.resultRows(codec.pages[1],{columns:pricedColumns,rows:[pricedColumns.map(cell)]},pricedColumns);
+check(rows[0].length===20 && rows[0][18].text==='psu' && rows[0][19].text==='gpuVoltage','PSU and GPU power columns survive a full state round trip.');
 console.log('Calculator state: ' + checks + ' assertions passed.');

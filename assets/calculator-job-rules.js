@@ -11,13 +11,14 @@
         if (gpu && same(wanted, 'AMD')) return /Radeon/i.test(name);
         return false;
     }
-    function upgradeBrandRules(rules, db) {
+    function upgradeBrandRules(rules, db, includeCooling) {
         var result = { applied: [], deferred: [] };
         (rules || []).forEach(function (rule) {
-            // Upgrader buys only CPUs, GPUs and motherboards. A manufacturer goal
-            // for RAM, storage, cooling, etc. must not reject every score upgrade.
+            // CPU-clock plans can also buy cooling. Ancillary manufacturer
+            // goals outside the actual search must not reject every upgrade.
             // Use the complete catalog so career locks do not disable valid goals.
-            var supported = ['cpus', 'gpus', 'mobos'].some(function (group) {
+            var groups = ['cpus', 'gpus', 'mobos'].concat(includeCooling ? ['coolers'] : []);
+            var supported = groups.some(function (group) {
                 return Object.keys(db[group] || {}).some(function (name) {
                     return same(db[group][name].manufacturer, rule.brand);
                 });
@@ -46,12 +47,13 @@
         return (options.brands || []).every(function (rule) {
             var n = 0;
             var parts = [ ['cpus', 'cpu', 1], ['gpus', 'gpu', gpuCount], ['mobos', 'mobo', 1],
-                ['pcCases', 'pcCase', 1], ['rams', 'ram', count(candidate.ramChannel)] ];
+                ['pcCases', 'pcCase', 1], ['rams', 'ram', count(candidate.ramChannel)], ['coolers', 'cooler', 1], ['psus','psu',1] ];
             parts.forEach(function (spec) {
                 if (isUpgrade && rule.newOnly && (spec[1] === 'pcCase' || spec[1] === 'ram' ||
                     spec[1] === 'cpu' && candidate.changedCpu === false ||
                     spec[1] === 'gpu' && candidate.changedGpu === false ||
-                    spec[1] === 'mobo' && candidate.changedMobo === false)) return;
+                    spec[1] === 'mobo' && candidate.changedMobo === false ||
+                    spec[1] === 'cooler' && candidate.changedCooler !== true)) return;
                 var name = candidate[spec[1]] || (!rule.newOnly && isUpgrade ? system[spec[1]] : '');
                 var part = db[spec[0]] && db[spec[0]][name];
                 var quantity = spec[2];
@@ -60,6 +62,10 @@
                 if (part && same(part.manufacturer, rule.brand)) n += quantity;
             });
             if (!rule.newOnly && isUpgrade) (system.otherParts || []).forEach(function (part) {
+                // The original cooler is already represented above, or replaced
+                // by the plan. Do not count it again among ancillary hardware.
+                if ((candidate.cooler || system.cooler) && (part.type === 'AIR_COOLER' || part.type === 'LIQUID_COOLER' ||
+                    system.cooler && same(part.fullName, system.cooler))) return;
                 if (same(part.manufacturer, rule.brand)) n++;
             });
             return n >= Math.max(1, Number(rule.count) || 1);

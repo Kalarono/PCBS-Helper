@@ -17,9 +17,9 @@ const builds = engine.maker(db, options, filters);
 check(builds.length > 0, "The screenshot quest has solutions at level 16.");
 for (const b of builds) {
   const cpu = db.cpus[b.cpu], gpu = db.gpus[b.gpu], board = db.mobos[b.mobo];
-  check(b.price + options.reserve <= options.budget, "The parts and reserve fit the quest budget.");
+  check(b.price + b.remainingReserve <= options.budget, "The parts, CPU cooling and remaining reserve fit the quest budget.");
   check(b.cpuMhz >= 4700 && b.gpuMhz >= 2071, "Both frequency goals are met.");
-  check(b.cpuMhz <= cpu.maxMhz && b.gpuMhz <= gpu.maxMhz && b.gpuMhz <= gpu.tunerMaxMhz, "No lucky-silicon bonus is assumed.");
+  check(b.cpuMhz <= cpu.maxMhz && b.gpuMhz <= gpu.tunerMaxMhz && b.gpuVoltage<=100+gpu.maxVoltageIncrease, "Native tuner and combined GPU voltage limits are used without a silicon bonus.");
   check(b.cpuMhz <= cpu.baseMhz || cpu.canOverclock === "Yes" && board.canOverclock === "Yes", "CPU overclock needs an unlocked CPU and board.");
   check([cpu, gpu, board, db.rams[b.ram], db.pcCases[b.pcCase]].every(p => p.unlocked && p.inShop === "Yes"), "Locked or unavailable hardware is excluded.");
   check(b.score === engine.score(db, { ...b, cpu: b.cpu, gpu: b.gpu }).total, "Score is calculated at the proposed clocks.");
@@ -34,7 +34,7 @@ check(engine.cpuClock({ ...cpu, maxMhz: 20000 }, 10000, db.constants) === 0, "BI
 check(engine.gpuClock({ ...gpu, tunerMaxMhz: 2000 }, 2071) === 0, "GPU Tuner range is enforced.");
 check(engine.gpuClock({ ...gpu, maxMhz: undefined }, 2071) === 0, "Unknown OC capability is not guessed.");
 const exact = { ...options, fixed: { cpu: first.cpu, gpu: first.gpu, mobo: first.mobo, pcCase: first.pcCase, ram: first.ram } };
-check(engine.maker(db, { ...exact, budget: first.price + 399 }, filters).length === 0, "Budget includes the remaining-component reserve.");
+check(engine.maker(db, { ...exact, budget: first.price + first.remainingReserve - 1 }, filters).length === 0, "Budget includes the remaining-component reserve without charging the cooler twice.");
 const lockedBoard = { ...db, mobos: { ...db.mobos, [first.mobo]: { ...db.mobos[first.mobo], canOverclock: "No" } } };
 check(engine.maker(lockedBoard, exact, filters).length === 0, "A non-OC motherboard cannot sneak through a fixed part constraint.");
 check(engine.maker(db, { ...exact, targetCpuMhz: 100000 }, filters).length === 0, "Impossible CPU targets produce no results.");
@@ -46,7 +46,7 @@ check(engine.maker(db, { ...exact, target: first.score + 100000 }, filters).leng
 for (const targets of [{ targetCpuMhz: 4700, targetGpuMhz: 0 }, { targetCpuMhz: 0, targetGpuMhz: 2071 }])
   check(engine.maker(db, { ...exact, ...targets }, filters).length > 0, "Single-component OC jobs work independently.");
 const system = { cpu: first.cpu, gpu: first.gpu, mobo: first.mobo, pcCase: first.pcCase,
-  gpuCount: 1, ramSticks: 1, ramSpeed: first.ramSpeed, cpuMhz: cpu.baseMhz, gpuMhz: gpu.baseMhz };
+  gpuCount: 1, ramSticks: 1, ramSpeed: first.ramSpeed, cpuMhz: cpu.baseMhz, gpuMhz: gpu.baseMhz, cooler: first.cooler };
 const upgradeOptions = { ...exact, fixed: { ...exact.fixed, ram: "" }, upgrade: true, system };
 const up = engine.upgrader(db, upgradeOptions, filters);
 check(up.length > 0 && up[0].price === 0, "Existing OC-capable hardware can meet the job without a purchase.");

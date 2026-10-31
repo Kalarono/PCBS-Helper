@@ -12,9 +12,9 @@ const bridge = 'window.pcbsInitialState=JSON.parse(sessionStorage.getItem("pcbs-
     'window.pcbsGameCatalog=' + fs.readFileSync(path.join(project,'build/game-catalog/helper-catalog.json'),'utf8') + ';' +
     'window.pcbsFixtureAlerts=[];window.alert=function(message){pcbsFixtureAlerts.push(message);};' +
     'window.pcbsSaveCalculator=function(json){window.pcbsCaptured=JSON.parse(json);};window.pcbsCalculatorTab=function(allowed){window.pcbsClearEnabled=allowed;};';
-html = html.replace('</body>', '<script>' + bridge + '</script><script>window.pcbsInitialLanguage=new URLSearchParams(location.search).get("lang")||"en";</script><script>' +
+html = html.replace('</body>', function () { return '<script>' + bridge + '</script><script>window.pcbsInitialLanguage=new URLSearchParams(location.search).get("lang")||"en";</script><script>' +
     asset('calculator-state-codec.js') + '</script><script>' + asset('calculator-job-rules.js') + '</script><script>' +
-    asset('helper-calculator-engine.js') + '</script><script>' + asset('helper-calculator-app.js') + '</script><script>' + asset('embedded-ui.js') + '</script><script>' + asset('calculator-state.js') + '</script><script>' + asset('calculator-localization.js') + '</script><script>' + asset('calculator-build-order.js') + '</script></body>');
+    asset('helper-calculator-engine.js') + '</script><script>' + asset('helper-calculator-app.js') + '</script><script>' + asset('embedded-ui.js') + '</script><script>' + asset('calculator-state.js') + '</script><script>' + asset('calculator-localization.js') + '</script><script>' + asset('calculator-build-order.js') + '</script></body>'; });
 return html;
 }
 const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(pageHtml()); });

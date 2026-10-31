@@ -7,8 +7,8 @@
     };
     var tables = { divBuildMaker: 'tableBuildMakerResults', divBuildUpgrader: 'tableBuildUpgraderResults', divPartReplacer: 'tablePartReplacerResults' };
     var columns = {
-        divBuildMaker: ['case','cpu','ramChannels','ramSpeed','ram','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts','action','cpuMhz','gpuMhz'],
-        divBuildUpgrader: ['cpu','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts','cpuMhz','gpuMhz'],
+        divBuildMaker: ['case','cpu','ramChannels','ramSpeed','ram','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts','action','cpuMhz','gpuMhz','cooler','cpuThermal','psu','gpuVoltage'],
+        divBuildUpgrader: ['cpu','gpuCount','gpuType','gpu','mobo','price','remaining','score','watts','cpuMhz','gpuMhz','cooler','cpuThermal','gpuVoltage'],
         divPartReplacer: ['cpu','gpu','gpu2','mobo','price','remaining','score']
     };
     var scoreIds = ['td3DMarkCpuScore', 'td3DMarkGpuScore', 'td3DMarkSystemScore', 'td3DMarkGpuType', 'td3DMarkSystemWatts',
@@ -87,6 +87,7 @@
             var row = table.insertRow(-1);
             cells.forEach(function (saved) {
                 var cell = row.insertCell(-1); cell.textContent = saved.text; cell.className = saved.css;
+                if (saved.css === 'tdPrice' && /^\d+(?:\.\d+)?$/.test(saved.text)) cell.textContent = '$' + saved.text;
                 if (saved.save && page === 'divBuildMaker') addSaveButton(cell, i + 1);
             });
         });

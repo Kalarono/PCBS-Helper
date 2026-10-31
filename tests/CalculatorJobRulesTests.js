@@ -50,4 +50,14 @@ check(!rules.valid({ gpu: 'Water' }, { upgrade: true, system: original,
     brands: [{ brand: 'Intel', count: 1, newOnly: true }] }, db), 'An unchanged Intel CPU does not satisfy a new-part brand requirement.');
 check(rules.valid({ gpu: 'Water' }, { upgrade: true, system: original,
     brands: [{ brand: 'Intel', count: 1, newOnly: false }] }, db), 'A DLC installed-brand goal may use retained hardware.');
+db.coolers={Arctic:{manufacturer:'ARCTIC',fullName:'Arctic'},Other:{manufacturer:'Other',fullName:'Other'}};
+const arctic={brand:'ARCTIC',count:1,newOnly:true};
+check(rules.valid({...build,cooler:'Arctic'},{brands:[arctic]},db),'A new-build cooler satisfies its manufacturer goal.');
+check(rules.upgradeBrandRules([arctic],db,true).applied.length===1,'A CPU-clock upgrade searches cooling manufacturer requirements.');
+check(rules.upgradeBrandRules([arctic],db,false).deferred.length===1,'A score-only upgrade still defers cooling purchases outside its search.');
+check(!rules.valid({...build,cooler:'Arctic',changedCooler:false},{upgrade:true,system:{...original,cooler:'Arctic'},brands:[arctic]},db),'A retained cooler does not count as a newly installed brand part.');
+check(rules.valid({...build,cooler:'Arctic',changedCooler:true},{upgrade:true,system:original,brands:[arctic]},db),'A purchased cooler satisfies a new-part brand requirement in an upgrade.');
+const withCooler={...original,cooler:'Arctic',otherParts:[{manufacturer:'ARCTIC',fullName:'Arctic',type:'AIR_COOLER'}]};
+check(!rules.valid({...build,cooler:'Arctic',changedCooler:false},{upgrade:true,system:withCooler,brands:[{...arctic,count:2,newOnly:false}]},db),'The same original cooler is never counted twice.');
+check(!rules.valid({...build,cooler:'Other',changedCooler:true},{upgrade:true,system:withCooler,brands:[{...arctic,newOnly:false}]},db),'A removed cooler cannot satisfy an installed-brand objective.');
 console.log('Calculator job rules: ' + checks + ' assertions passed.');

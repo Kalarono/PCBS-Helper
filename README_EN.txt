@@ -1,4 +1,4 @@
-﻿PCBS-Helper 1.0.3
+PCBS-Helper 1.0.3
 An in-game helper for PC Building Simulator 1 on Windows
 
 Tested with game version 1.15.3. Not compatible with PC Building Simulator 2.
@@ -9,11 +9,21 @@ For instructions in Russian, see README.txt.
 
 NEW IN 1.0.3
 
+  - Instant Utility Installation adds apps and installs the OS without a USB drive
+    or an installation wait. Enable it before booting. Working hardware and
+    storage are still required.
   - CPU/GPU overclock jobs import clock targets, budget and customer requirements.
   - Results show the clocks to set manually. Check voltage, cooling and stability
     in the game.
+  - Air-cooled GPU overclock selection is fixed. GPU Power (%) appears in results.
+  - New builds include a CPU cooler and compatible PSU with 10% power headroom.
+    Prices stay visible while scrolling; RAM variations no longer create duplicates.
+  - Manufacturer requirements include the selected cooler, including ARCTIC.
+  - Empty Score Offset means no upper score limit. Importing a job keeps your
+    budget reserve, including an empty field for no reserve.
   - PCI locks return after GPU installation without duplicates.
   - Coolers no longer stall at orientation selection after the socket closes.
+    AIO installation also handles an open CPU socket latch.
   - HDD trays opened by the helper return before case panels are restored.
 
 NEW IN 1.0.2
@@ -95,8 +105,8 @@ and Build Helper data are saved between game sessions.
 
 F1 FEATURES
 
-  Install All Apps       - Open Add/Remove Programs on the in-game PC
-                           to install its applications.
+  Instant Utility Installation - Install the OS without USB or waiting.
+                                 Open Add/Remove Programs to add applications.
   Instant 3DMark         - Start a 3DMark test to get the result immediately.
   Click Purchase        - Left-click a part in PC Stats opened from a job
                            email to add one new part of that model to a cart.
@@ -175,18 +185,38 @@ In Build Maker results, Order adds the selected build's parts to the
 shop carts with the required RAM and GPU quantities. The button changes
 to In cart after confirmation. If it shows Partly in cart, review the
 skipped parts below the form and order them manually.
-Choose the PSU, storage and cooling separately. Complete the purchase
-and select delivery in the shop. Order works independently of Click Purchase.
+Build prices include the CPU cooler and a compatible PSU with 10% power headroom.
+Storage and delivery are separate purchases.
+Complete the purchase and select delivery in the shop.
+Order works independently of Click Purchase.
 
 Budget is for parts only; do not add the payment for your work.
 For new builds, Reserved Budget initially defaults to $400 for other parts.
-Adjust it to your needs. Career Level and % Through are imported from the
+Adjust it to your needs. Importing a job keeps your choice; an empty field means $0.
+Selected PSU and cooler costs use this reserve first, without being counted twice.
+Career Level and % Through are imported from the
 game. Leave All Parts Unlocked? unchecked in a normal career.
 Selection checks clock targets, part limits and motherboard overclock support.
 Set the result clocks manually in BIOS / GPU Tuner and test stability with OCCT.
 An upgrade can cost $0 when the installed hardware already fits the targets.
-Table watts exclude overclocking. Account for repairs, storage and cooling
-separately. Verify any score goal with the in-game 3DMark test.
+New builds always include a cooler that fits the socket and case; upgrades
+select cooling when a CPU clock target is set. Results show
+the cooler, full-load CPU temperature estimate and voltage. Selection keeps
+a 5 °C margin below throttling without a silicon lottery bonus or extra case fans.
+Cooler cost is included in the price and deducted from the reserve first; Order
+also adds it to the cart. Upgrades retain suitable installed cooling.
+Manufacturer requirements include the selected cooler, such as ARCTIC.
+An empty Score Offset has no upper score limit.
+Build power estimates include overclocking. Account for repairs and storage separately.
+Automatic builds include CPU cooling and use air-cooled GPUs. Complete custom loops
+and GPU radiators need manual planning. One result is shown per CPU/GPU/board
+combination, without RAM duplicates. New build prices include a compatible PSU
+with 10% power headroom and stay visible while scrolling. Storage and delivery
+are separate. Old new-build results that omitted the PSU price are cleared on
+update; form settings and history are kept.
+Set GPU Power (%) as shown; keep GPU memory at stock for new builds.
+Upgrades use its current memory clock. Verify the score in 3DMark.
+AIO installation now closes an open CPU socket latch before installing the radiator.
 
 Expand / Compact changes the window size; - / + changes the interface scale.
 Clear resets only the current calculation tab. Close hides the panel

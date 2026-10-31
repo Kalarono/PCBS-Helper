@@ -36,10 +36,15 @@ internal static class CalculatorBuildOrderTests
             "{\"kind\":\"gpu\",\"name\":\"Two GPUs\",\"quantity\":2}]}", out id);
         Check(id == "order-1" && request.Count == 3, "The real JSONNode parser accepts the bridge envelope.");
         Check(request[1].Quantity == 4 && request[2].Quantity == 2, "RAM and GPU quantities survive native JSON parsing.");
+        var coolerRequest = CalculatorBuildOrder.Read("{\"version\":1,\"id\":\"cooler-order\",\"items\":[{\"kind\":\"cooler\",\"name\":\"NZXT Kraken Z63\",\"quantity\":1}]}", out id);
+        Check(coolerRequest.Count == 1 && coolerRequest[0].Kind == "cooler", "OC plans can order the recommended CPU cooler.");
+        Reject("[{\"kind\":\"cooler\",\"name\":\"Cooler\",\"quantity\":2}]", "A build cannot order two CPU coolers.");
         Reject("[]", "Empty builds are rejected.");
         Reject("{}", "Items must be an array.");
         Reject("[null]", "Items must be objects.");
-        Reject("[{\"kind\":\"psu\",\"name\":\"PSU\",\"quantity\":1}]", "PSU is not ordered by Build Maker.");
+        var psuRequest=CalculatorBuildOrder.Read("{\"version\":1,\"id\":\"psu-order\",\"items\":[{\"kind\":\"psu\",\"name\":\"Test PSU\",\"quantity\":1}]}",out id);
+        Check(psuRequest[0].Kind=="psu","The recommended PSU is included in the build order.");
+        Reject("[{\"kind\":\"psu\",\"name\":\"PSU\",\"quantity\":2}]", "Only one PSU can be ordered.");
         Reject("[{\"kind\":\"storage\",\"name\":\"SSD\",\"quantity\":1}]", "Storage stays a manual purchase.");
         Reject("[{\"kind\":\"ram\",\"name\":\"RAM\",\"quantity\":5}]", "Excess RAM counts are rejected.");
         Reject("[{\"kind\":\"gpu\",\"name\":\"GPU\",\"quantity\":3}]", "More than two GPUs are rejected.");
@@ -57,6 +62,11 @@ internal static class CalculatorBuildOrderTests
             m_sizeGb = 8, m_speedMhz = 2133, m_uiName = "ADATA Premier Series 8 ГБ 2133 МГц" };
         bool ambiguous;
         PartDesc found = CalculatorBuildOrder.Resolve(new PartDesc[] { otherRam, ram }, request[1], out ambiguous);
+        foreach (PartDesc.Type type in new PartDesc.Type[]{PartDesc.Type.AIR_COOLER,PartDesc.Type.LIQUID_COOLER})
+        {
+            PartDesc cooler = new PartDesc {m_id="cooler",m_manufacturer="NZXT",m_partName="Kraken Z63",m_type=type};
+            Check(CalculatorBuildOrder.Resolve(new PartDesc[]{cooler},coolerRequest[0],out ambiguous)==cooler,"CPU cooling resolves to a real shop part.");
+        }
         Check(found == ram && !ambiguous, "RAM matches by exact canonical capacity and speed in a Russian game.");
         Check(CalculatorBuildOrder.Resolve(new PartDesc[] { otherRam }, request[1], out ambiguous) == null,
             "A different RAM capacity is never substituted.");

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Collections;
 using System.Text.RegularExpressions;
 using System.IO;
+using System.Runtime.CompilerServices;
 using BepInEx;
 using UnityEngine;
 using ZenFulcrum.EmbeddedBrowser;
@@ -56,6 +57,9 @@ namespace PCBSCalculatorHelper
             catalog["constants"] = constants;
             constants["minCpu"] = OverclockConstants.s_min3DMarkCPU;
             constants["minGpu"] = OverclockConstants.s_min3DMarkGPU;
+            // Unity Mono can keep float intermediates at double precision.
+            // Probe the executing runtime instead of assuming the test CLR's math.
+            constants["gpuExtendedPrecision"] = GpuArithmeticProbe(0.030172f, 1072f, 0.028984f, 1375f, 40.528011f) == 112.72539520263672f;
             constants["minFps"] = OverclockConstants.s_min3DMarkFPS;
             constants["baseClock"] = OverclockConstants.s_defaultBaseClock;
             constants["maxMultiplierPercent"] = OverclockConstants.s_maxCPUMultiplierPercentage;
@@ -166,6 +170,9 @@ namespace PCBSCalculatorHelper
             return catalog;
         }
         private static readonly string[] GeometryFields = { "ramSlots", "gpuSlots", "m2Slots", "gpuPositions", "m2Heatsinks", "pciSlots", "useCaseGpuSlots" };
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static float GpuArithmeticProbe(float core, float coreMhz, float memory, float memoryMhz, float adjustment)
+        { return core * coreMhz + memory * memoryMhz + adjustment; }
         private static void AddSlots(PartDesc part, JSONNode item, Dictionary<string, JSONNode> cached)
         {
             JSONNode geometry;

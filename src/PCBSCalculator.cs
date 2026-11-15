@@ -11,7 +11,7 @@ using ZenFulcrum.EmbeddedBrowser;
 
 namespace PCBSCalculatorHelper
 {
-    [BepInPlugin("local.pcbs.calculator", "PCBS-Helper", "1.0.3")]
+    [BepInPlugin("local.pcbs.calculator", "PCBS-Helper", "1.0.4")]
     [DefaultExecutionOrder(-32000)]
     public sealed class CalculatorPlugin : BaseUnityPlugin
     {
@@ -115,6 +115,7 @@ namespace PCBSCalculatorHelper
             try
             {
                 harmony = new Harmony("local.pcbs.calculator");
+                ComponentDustInstantCleanPatch.Install(harmony);
                 Patch(typeof(InputAxis), "Get", "BlockAxis");
                 Patch(typeof(InputButton), "Get", "BlockAxis");
                 foreach (string method in new string[] { "IsHeld", "IsDown", "IsDownOnJoystick", "IsUp", "ConsumeDown" })

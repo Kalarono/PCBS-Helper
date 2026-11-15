@@ -5,6 +5,10 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $projectPath = $PSScriptRoot
+$localTestRunner = Join-Path $projectPath 'tests\Run-Tests.ps1'
+if ($Test -and -not (Test-Path -LiteralPath $localTestRunner)) {
+    throw 'The local test suite is not included in the public repository. Build without -Test.'
+}
 if (-not $GamePath) {
     $localSettings = Join-Path $projectPath 'build.local.json'
     if (Test-Path -LiteralPath $localSettings) { $GamePath = (Get-Content -LiteralPath $localSettings -Raw | ConvertFrom-Json).gamePath }
@@ -48,112 +52,12 @@ foreach ($readmeName in @('README.md', 'README_EN.md', 'README.txt', 'README_EN.
     Copy-Item -LiteralPath (Join-Path $projectPath $readmeName) -Destination $packagePath -Force
 }
 Copy-Item -LiteralPath (Join-Path $projectPath 'CHANGELOG.md') -Destination $packagePath -Force
-Copy-Item -LiteralPath (Join-Path $projectPath 'DEVELOPMENT.md') -Destination $packagePath -Force
+# Retire the internal developer notes from previous local package builds.
+$obsoleteDeveloperNotes = Join-Path $packagePath 'DEVELOPMENT.md'
+if (Test-Path -LiteralPath $obsoleteDeveloperNotes) { Remove-Item -LiteralPath $obsoleteDeveloperNotes }
 if ($Test) {
-    $osTests = Join-Path $buildPath 'OperatingSystemInstallationTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$osTests" "/reference:$(Join-Path $managedPath 'Assembly-CSharp-firstpass.dll')" "/reference:$(Join-Path $managedPath 'UnityEngine.CoreModule.dll')" "/reference:$(Join-Path $GamePath 'BepInEx\core\0Harmony.dll')" (Join-Path $projectPath 'src\OperatingSystemInstallation.cs') (Join-Path $projectPath 'tests\OperatingSystemInstallationTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'OS installation tests could not compile.' }
-    & $osTests $managedPath (Join-Path $GamePath 'BepInEx\core')
-    if ($LASTEXITCODE -ne 0) { throw 'OS installation tests failed.' }
-    $workbenchTests = Join-Path $buildPath 'WorkbenchOrderTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$workbenchTests" (Join-Path $projectPath 'src\DependencyOrder.cs') (Join-Path $projectPath 'src\InventoryOrder.cs') (Join-Path $projectPath 'tests\WorkbenchOrderTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Workbench ordering tests could not compile.' }
-    & $workbenchTests
-    if ($LASTEXITCODE -ne 0) { throw 'Workbench ordering tests failed.' }
-    $workbenchRulesTests = Join-Path $buildPath 'WorkbenchRulesTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$workbenchRulesTests" (Join-Path $projectPath 'src\WorkbenchRules.cs') (Join-Path $projectPath 'tests\WorkbenchRulesTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Workbench behavior tests could not compile.' }
-    & $workbenchRulesTests
-    if ($LASTEXITCODE -ne 0) { throw 'Workbench behavior tests failed.' }
-    $dependencyTests = Join-Path $buildPath 'DependencyInstallationTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$dependencyTests" (Join-Path $projectPath 'src\DependencyRemoval.cs') (Join-Path $projectPath 'src\DependencyOrder.cs') (Join-Path $projectPath 'src\WorkbenchRules.cs') (Join-Path $projectPath 'tests\DependencyGameStubs.cs') (Join-Path $projectPath 'tests\DependencyInstallationTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Dependency installation tests could not compile.' }
-    & $dependencyTests
-    if ($LASTEXITCODE -ne 0) { throw 'Dependency installation tests failed.' }
-    $workbenchContractTests = Join-Path $buildPath 'WorkbenchGameContractTests.exe'
-    $cecilPath = Join-Path $GamePath 'BepInEx\core\Mono.Cecil.dll'
-    Copy-Item -LiteralPath $cecilPath -Destination $buildPath -Force
-    & $compilerPath /nologo /target:exe "/out:$workbenchContractTests" "/reference:$cecilPath" (Join-Path $projectPath 'tests\WorkbenchGameContractTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Game workbench API tests could not compile.' }
-    & $workbenchContractTests $managedPath (Join-Path $packagePath 'PCBS-Helper.dll')
-    if ($LASTEXITCODE -ne 0) { throw 'Game workbench API tests failed.' }
-    $requirementsTests = Join-Path $buildPath 'RequirementClarificationsTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$requirementsTests" (Join-Path $projectPath 'src\RequirementClarifications.cs') (Join-Path $projectPath 'tests\RequirementClarificationsTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Job clarification tests could not compile.' }
-    & $requirementsTests
-    if ($LASTEXITCODE -ne 0) { throw 'Job clarification tests failed.' }
-    $jobReaderTests = Join-Path $buildPath 'JobRequirementReaderTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$jobReaderTests" "/reference:$(Join-Path $managedPath 'Assembly-CSharp-firstpass.dll')" "/reference:$(Join-Path $managedPath 'UnityEngine.CoreModule.dll')" (Join-Path $projectPath 'src\RequirementClarifications.cs') (Join-Path $projectPath 'src\JobRequirementReader.cs') (Join-Path $projectPath 'tests\JobRequirementReaderTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Native job objective tests could not compile.' }
-    & $jobReaderTests $managedPath
-    if ($LASTEXITCODE -ne 0) { throw 'Native job objective tests failed.' }
-    $jobTargetsTests = Join-Path $buildPath 'CalculatorJobTargetsTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$jobTargetsTests" "/reference:$(Join-Path $managedPath 'Assembly-CSharp-firstpass.dll')" "/reference:$(Join-Path $managedPath 'UnityEngine.CoreModule.dll')" (Join-Path $projectPath 'src\CalculatorJobTargets.cs') (Join-Path $projectPath 'tests\CalculatorJobTargetsTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Native calculator job target tests could not compile.' }
-    & $jobTargetsTests $managedPath
-    if ($LASTEXITCODE -ne 0) { throw 'Native calculator job target tests failed.' }
-    $positionTestExe = Join-Path $buildPath 'WindowPositionTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$positionTestExe" (Join-Path $projectPath 'src\WindowPositionMath.cs') (Join-Path $projectPath 'tests\WindowPositionTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Window position tests could not compile.' }
-    & $positionTestExe
-    if ($LASTEXITCODE -ne 0) { throw 'Window position tests failed.' }
-    $cursorTestExe = Join-Path $buildPath 'PanelCursorModeTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$cursorTestExe" (Join-Path $projectPath 'src\PanelCursorMode.cs') (Join-Path $projectPath 'tests\PanelCursorModeTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Cursor toggle tests could not compile.' }
-    & $cursorTestExe
-    if ($LASTEXITCODE -ne 0) { throw 'Cursor toggle tests failed.' }
-    $scrollTestExe = Join-Path $buildPath 'BrowserScrollBufferTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$scrollTestExe" (Join-Path $projectPath 'src\BrowserScrollBuffer.cs') (Join-Path $projectPath 'tests\BrowserScrollBufferTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Browser scroll tests could not compile.' }
-    & $scrollTestExe
-    if ($LASTEXITCODE -ne 0) { throw 'Browser scroll tests failed.' }
-    $emailLayoutTestExe = Join-Path $buildPath 'EmailButtonLayoutTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$emailLayoutTestExe" (Join-Path $projectPath 'src\EmailButtonLayout.cs') (Join-Path $projectPath 'tests\EmailButtonLayoutTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Email button layout tests could not compile.' }
-    & $emailLayoutTestExe
-    if ($LASTEXITCODE -ne 0) { throw 'Email button layout tests failed.' }
-    $clickPurchaseTestExe = Join-Path $buildPath 'ClickPurchaseCartTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$clickPurchaseTestExe" (Join-Path $projectPath 'src\ClickPurchaseCart.cs') (Join-Path $projectPath 'tests\ClickPurchaseCartTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Click purchase cart tests could not compile.' }
-    & $clickPurchaseTestExe
-    if ($LASTEXITCODE -ne 0) { throw 'Click purchase cart tests failed.' }
-    $buildOrderTestExe = Join-Path $buildPath 'CalculatorBuildOrderTests.exe'
-    & $compilerPath /nologo /target:exe /main:CalculatorBuildOrderTests "/out:$buildOrderTestExe" "/reference:$(Join-Path $managedPath 'ZFBrowser.dll')" (Join-Path $projectPath 'src\ClickPurchaseCart.cs') (Join-Path $projectPath 'src\CalculatorBuildOrder.cs') (Join-Path $projectPath 'tests\ClickPurchaseCartTests.cs') (Join-Path $projectPath 'tests\CalculatorBuildOrderTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Calculator build order tests could not compile.' }
-    & $buildOrderTestExe $managedPath (Join-Path $buildPath 'game-catalog\matching.json')
-    if ($LASTEXITCODE -ne 0) { throw 'Calculator build order tests failed.' }
-    $careerTestExe = Join-Path $buildPath 'CareerProgressTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$careerTestExe" (Join-Path $projectPath 'src\CareerProgress.cs') (Join-Path $projectPath 'tests\CareerProgressTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Career progress tests could not compile.' }
-    & $careerTestExe
-    if ($LASTEXITCODE -ne 0) { throw 'Career progress tests failed.' }
-    $localizationTestExe = Join-Path $buildPath 'HelperLocalizationTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$localizationTestExe" (Join-Path $projectPath 'src\HelperLocalization.cs') (Join-Path $projectPath 'tests\HelperLocalizationTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Native localization tests could not compile.' }
-    & $localizationTestExe
-    if ($LASTEXITCODE -ne 0) { throw 'Native localization tests failed.' }
-    $shopTests = Join-Path $buildPath 'ShopEnhancementsTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$shopTests" "/reference:$(Join-Path $GamePath 'BepInEx\core\BepInEx.dll')" "/reference:$(Join-Path $managedPath 'Assembly-CSharp-firstpass.dll')" "/reference:$(Join-Path $managedPath 'UnityEngine.CoreModule.dll')" (Join-Path $projectPath 'src\ShopStockCounts.cs') (Join-Path $projectPath 'src\ShopSortSettings.cs') (Join-Path $projectPath 'tests\ShopEnhancementsTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Shop enhancement tests could not compile.' }
-    & $shopTests $GamePath
-    if ($LASTEXITCODE -ne 0) { throw 'Shop enhancement tests failed.' }
-    $shopContractTests = Join-Path $buildPath 'ShopGameContractTests.exe'
-    & $compilerPath /nologo /target:exe "/out:$shopContractTests" "/reference:$cecilPath" (Join-Path $projectPath 'tests\ShopGameContractTests.cs')
-    if ($LASTEXITCODE -ne 0) { throw 'Shop API tests could not compile.' }
-    & $shopContractTests $managedPath (Join-Path $packagePath 'PCBS-Helper.dll')
-    if ($LASTEXITCODE -ne 0) { throw 'Shop API tests failed.' }
-    $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
-    if ($nodeCommand) {
-        & $nodeCommand.Source (Join-Path $projectPath 'tests\CalculatorStateTests.js')
-        if ($LASTEXITCODE -ne 0) { throw 'Calculator state tests failed.' }
-        & $nodeCommand.Source (Join-Path $projectPath 'tests\CalculatorJobRulesTests.js')
-        if ($LASTEXITCODE -ne 0) { throw 'Calculator job rule tests failed.' }
-        & $nodeCommand.Source (Join-Path $projectPath 'tests\CalculatorLocalizationTests.js')
-        if ($LASTEXITCODE -ne 0) { throw 'Calculator localization tests failed.' }
-        if (Test-Path -LiteralPath (Join-Path $projectPath 'build\game-catalog\helper-catalog.json')) {
-            & (Join-Path $projectPath 'scripts\Test-Calculator.ps1') -GamePath $GamePath
-        }
-    } else { Write-Warning 'Node.js not found: calculator JavaScript tests were skipped.' }
+    & $localTestRunner -ProjectPath $projectPath -GamePath $GamePath -ManagedPath $managedPath `
+        -CompilerPath $compilerPath -BuildPath $buildPath -PackagePath $packagePath
 }
 if ($Install) {
     if (Get-Process PCBS -ErrorAction SilentlyContinue) { throw 'Build succeeded. Close PCBS before installation, then rerun with -Install.' }

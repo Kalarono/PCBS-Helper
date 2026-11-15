@@ -1,4 +1,4 @@
-PCBS-Helper 1.0.3
+PCBS-Helper 1.0.4
 An in-game helper for PC Building Simulator 1 on Windows
 
 Tested with game version 1.15.3. Not compatible with PC Building Simulator 2.
@@ -6,6 +6,25 @@ All features run inside the game; both helpers are embedded in the DLL.
 The interface follows the game's language: Russian or English.
 Other game languages use the English helper interface.
 For instructions in Russian, see README.txt.
+
+Version 1.0.4 fixes GPU benchmark entries with zero coefficients, including
+HEM 2.8.0 and catalogs from other mods. InstantDustCleaner is built into the
+DLL and always active. New build search includes low-cost, high-cost and varied
+options.
+
+NEW IN 1.0.4 (November 15, 2026)
+
+  - Zero GPU benchmark coefficients no longer stop calculations with
+    “Invalid GPU clocks.” HEM 2.8.0 and other mod catalogs containing these
+    coefficients are supported. GPU calculations account for the game's
+    runtime arithmetic precision.
+  - InstantDustCleaner is built into the main DLL and always active. The first
+    use of the air can cleans the part being treated. No separate plugin or
+    F1 toggle is needed.
+  - New builds use the 20% cheapest, 20% most expensive and 60% random options,
+    prioritizing different CPUs and GPU chips. With 10 results, that is 2, 2
+    and 6 options. The table is sorted by price.
+  - Build search uses less memory and caches only the current CPU/GPU pair.
 
 NEW IN 1.0.3
 
@@ -43,7 +62,7 @@ Settings, panel positions and calculator data are preserved.
 
 RELEASE FILES
 
-  PCBS-Helper-Full.zip   - BepInEx and the helper in one archive.
+  PCBS-Helper-1.0.4-Full.zip - BepInEx and the helper in one archive.
   BepInEx_win_x64_5.4.23.5.zip - The mod loader for Windows x64.
   PCBS-Helper.dll             - The helper plugin.
   README_EN.txt              - These instructions in English.
@@ -60,7 +79,7 @@ QUICK INSTALLATION FROM THE FULL ARCHIVE
    PC Building Simulator -> Manage -> Browse local files.
    This folder should contain PCBS.exe and the PCBS_Data folder.
 
-2. Extract the CONTENTS of PCBS-Helper-Full.zip directly into
+2. Extract the CONTENTS of PCBS-Helper-1.0.4-Full.zip directly into
    this folder. winhttp.dll, doorstop_config.ini and the BepInEx folder
    should be next to PCBS.exe. Do not create an extra folder for the ZIP.
    The helper is already included in BepInEx\plugins\PCBS-Helper.

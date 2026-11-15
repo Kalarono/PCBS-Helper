@@ -1,11 +1,46 @@
 # Сборки, пакеты релиза, скачанные зависимости и тестовые данные
-# Исходники тестов и инструкции в tests/ остаются в Git; результаты проверок — нет.
 /build/
 /dist/
 /artifacts/
 bin/
 obj/
 node_modules/
+
+# Локальные тесты, ручные проверки и внутренние заметки разработчика
+/tests/
+/DEVELOPMENT.md
+/scripts/Test-*.ps1
+
+# Планы и рабочие задания остаются локально
+plans/
+planning/
+.plans/
+.planning/
+# Включая имена вроде ImplementationPlan.md и release.plan.md
+*[Pp][Ll][Aa][Nn]*.md
+*[Pp][Ll][Aa][Nn]*.txt
+*.plan
+PLAN.*
+PLAN-*
+PLAN_*
+plan.*
+plan-*
+plan_*
+*-PLAN.*
+*_PLAN.*
+*-plan.*
+*_plan.*
+*-PLAN-*
+*_PLAN_*
+*-plan-*
+*_plan_*
+TODO*
+todo*
+ROADMAP*
+roadmap*
+ПЛАН*
+План*
+план*
 
 # Скомпилированные файлы и архивы: публикуются через GitHub Releases
 *.dll

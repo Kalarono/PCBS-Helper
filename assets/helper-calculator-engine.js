@@ -32,8 +32,12 @@
     count = integer(count, 1);
     if (count > 2 || (count === 2 && !gpu.multiGpu))
       throw new Error("Selected GPU does not support multi-GPU.");
+    var extended = constants.gpuExtendedPrecision === true;
     var fps = [0, 1].map(function (test) {
       var c = gpu.tests[test * 2 + count - 1];
+      if (extended)
+        return f(f(c[0]) * f(positive(coreMhz, gpu.baseMhz)) +
+          f(c[1]) * f(positive(memoryMhz, gpu.memoryMhz)) + f(c[2]));
       return f(
         f(
           f(f(c[0]) * f(positive(coreMhz, gpu.baseMhz))) +
@@ -43,14 +47,18 @@
     });
     if (
       fps.some(function (value) {
-        return !(value > 0) || !isFinite(value);
+        return !isFinite(value);
       })
     )
-      throw new Error("Invalid GPU clocks.");
-    return Math.max(
-      constants.minGpu,
-      Math.trunc(f(f(328) / f(f(f(1) / fps[0]) + f(f(1) / fps[1])))),
-    );
+      throw new Error("Invalid GPU benchmark data.");
+    // Zero coefficients occur in mod catalogs, including dual-GPU entries.
+    // PCBS divides by their zero FPS and then clamps the score to its minimum.
+    var rawScore = extended ? 328 / (1 / fps[0] + 1 / fps[1]) :
+      f(f(328) / f(f(f(1) / fps[0]) + f(f(1) / fps[1])));
+    // Match the native conv.i4 result for non-finite/out-of-range scores too.
+    var nativeScore = rawScore >= -2147483648 && rawScore < 2147483648
+      ? Math.trunc(rawScore) : -2147483648;
+    return Math.max(constants.minGpu, nativeScore);
   }
   function combine(cpu, gpu) {
     return Math.trunc(f(f(1) / f(f(f(0.85) / f(gpu)) + f(f(0.15) / f(cpu)))));
@@ -247,18 +255,100 @@
     }
     return null;
   }
-  function finish(results, options) {
-    results.sort(function (a, b) {
-      return (
-        a.price - b.price || a.score - b.score || a.cpu.localeCompare(b.cpu)
-      );
-    });
+  function compareResults(a, b) {
+    return a.price - b.price || a.score - b.score || a.cpu.localeCompare(b.cpu);
+  }
+  function uniqueResults(results) {
+    results.sort(compareResults);
     var seen = Object.create(null);
     return results.filter(function (r) {
       var key = JSON.stringify([r.cpu, r.gpu, r.mobo]);
       if (seen[key]) return false;
       seen[key] = true; return true;
-    }).slice(0, limit(options));
+    });
+  }
+  function finish(results, options) {
+    return uniqueResults(results).slice(0, limit(options));
+  }
+  function buildSampler(db, options) {
+    var capacity = limit(options), cheapest = [], expensive = [], random = [], groups = [];
+    var groupByKey = Object.create(null), seed = Math.floor(Math.random() * 4294967296);
+    function key(row) { return JSON.stringify([row.cpu, row.gpu, row.mobo]); }
+    function gpuFamily(row) { return db.gpus[row.gpu].chipset || row.gpu; }
+    // A seeded rank gives every unique combination/group one stable random draw.
+    // Bottom-k reservoirs retain only O(requested results) candidates, including
+    // expensive and random choices that the old cheapest-only pruning discarded.
+    function rank(value) {
+      var hash = seed;
+      for (var i = 0; i < value.length; i++) hash = Math.imul(hash ^ value.charCodeAt(i), 16777619);
+      hash = Math.imul(hash ^ (hash >>> 16), 2246822507);
+      hash = Math.imul(hash ^ (hash >>> 13), 3266489909);
+      return (hash ^ (hash >>> 16)) >>> 0;
+    }
+    function byRank(a, b) { return a.rank - b.rank || a.key.localeCompare(b.key); }
+    function retain(list, entry, compare) {
+      if (list.length === capacity && compare(entry, list[list.length - 1]) >= 0) return;
+      var low = 0, high = list.length;
+      while (low < high) {
+        var middle = (low + high) >>> 1;
+        if (compare(entry, list[middle]) < 0) high = middle;
+        else low = middle + 1;
+      }
+      list.splice(low, 0, entry);
+      return list.length > capacity ? list.pop() : null;
+    }
+    function add(row) {
+      retain(cheapest, row, compareResults);
+      retain(expensive, row, function (a, b) { return compareResults(b, a); });
+      var rowKey = key(row), entry = { row: row, key: rowKey, rank: rank("row:" + rowKey) };
+      retain(random, entry, byRank);
+      var family = JSON.stringify([row.cpu, gpuFamily(row)]), group = groupByKey[family];
+      if (group) {
+        if (byRank(entry, group.entry) < 0) group.entry = entry;
+      } else {
+        group = { key: family, rank: rank("group:" + family), entry: entry };
+        if (groups.length === capacity && byRank(group, groups[groups.length - 1]) >= 0) return;
+        var removed = retain(groups, group, byRank);
+        groupByKey[family] = group;
+        if (removed) delete groupByKey[removed.key];
+      }
+    }
+    function select() {
+      var count = cheapest.length, selected = [], seen = Object.create(null);
+      var cpus = Object.create(null), gpus = Object.create(null), pairs = Object.create(null);
+      if (!count) return selected;
+      if (count === 1) return [cheapest[0]];
+      var weights = [0.2, 0.2, 0.6], quotas = weights.map(function (w) { return Math.floor(count * w); });
+      var order = [0, 1, 2].sort(function (a, b) {
+        return (count * weights[b] - quotas[b]) - (count * weights[a] - quotas[a]) || a - b;
+      });
+      for (var left = count - quotas[0] - quotas[1] - quotas[2], i = 0; i < left; i++) quotas[order[i]]++;
+      // Even a two/three-row list should show both ends of the price range.
+      [0, 1].forEach(function (index) { if (!quotas[index]) { quotas[index]++; quotas[2]--; } });
+      function take(row) {
+        var rowKey = key(row);
+        if (seen[rowKey] || selected.length === count) return false;
+        seen[rowKey] = true; cpus[row.cpu] = true; gpus[gpuFamily(row)] = true;
+        pairs[JSON.stringify([row.cpu, gpuFamily(row)])] = true;
+        selected.push(row); return true;
+      }
+      cheapest.slice(0, quotas[0]).forEach(take);
+      expensive.slice(0, quotas[1]).forEach(take);
+      var candidates = groups.map(function (group) { return group.entry; }).concat(random);
+      // Prefer new CPU/chip combinations over cosmetic variants of the same GPU.
+      [function (r) { return !cpus[r.cpu] && !gpus[gpuFamily(r)]; },
+       function (r) { return !cpus[r.cpu]; },
+       function (r) { return !gpus[gpuFamily(r)]; },
+       function (r) { return !pairs[JSON.stringify([r.cpu, gpuFamily(r)])]; },
+       function () { return true; }].forEach(function (accept) {
+        candidates.forEach(function (entry) { if (accept(entry.row)) take(entry.row); });
+      });
+      // The cheapest reservoir alone can fill the list when few distinct CPU/GPU
+      // families exist; all fixed-part constraints and unique trios still hold.
+      cheapest.forEach(take);
+      return selected.sort(compareResults);
+    }
+    return { add: add, finish: select };
   }
   function maker(db, options, filters) {
     if (db.geometryReady === false)
@@ -313,7 +403,7 @@
     });
     var counts =
         options.gpuCount === "Any" ? [1, 2] : [integer(options.gpuCount, 1)],
-      results = [];
+      sampler = buildSampler(db, options);
     // Enumerate supporting memory/boards once, then reuse them across CPU/GPU pairs.
     // RAM models with the same type, effective speed and manufacturer compete on price.
     var plans = Object.create(null);
@@ -363,11 +453,14 @@
           );
       });
     });
-    var caseCache = Object.create(null), coolingCache = Object.create(null);
     cpus.forEach(function (cpu) {
       var cpuMhz = cpuClock(cpu, options.targetCpuMhz, db.constants);
       var cpuScores = Object.create(null);
       gpus.forEach(function (gpu) {
+        var pairResults = [];
+        // Both cache keys include this CPU/GPU pair. Keeping previous pairs
+        // cannot provide hits and retains huge catalogs of temporary case plans.
+        var caseCache = Object.create(null), coolingCache = Object.create(null);
         counts.forEach(function (count) {
           if (count === 2 && !gpu.multiGpu) return;
           var basePrice = cpu.price + gpu.price * count;
@@ -483,14 +576,13 @@
               supporting[key] = candidate;
           });
           Object.keys(supporting).forEach(function (key) {
-            results.push(supporting[key]);
+            pairResults.push(supporting[key]);
           });
-          if (results.length > limit(options) * 4)
-            results = finish(results, options);
         });
+        uniqueResults(pairResults).forEach(sampler.add);
       });
     });
-    return finish(results, options);
+    return sampler.finish();
   }
   function upgrader(db, options, filters) {
     if (db.geometryReady === false)

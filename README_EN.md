@@ -2,7 +2,7 @@
 
 [Русский](README.md) | **English**
 
-**An in-game helper for PC Building Simulator 1 on Windows. Version 1.0.3.**
+**An in-game helper for PC Building Simulator 1 on Windows. Version 1.0.4.**
 Tested with game version **1.15.3**. Not compatible with PC Building Simulator 2.
 
 Convenience settings, a **Build Helper** and a **Will it Run? Helper**, all
@@ -13,7 +13,12 @@ Both helpers are embedded in the DLL; no separate application is needed.
 This README includes installation instructions and a **step-by-step guide
 with 13 GIF demonstrations and a screenshot of the new shop features**:
 [F1 settings](#f1) · [F2 Build Helper](#f2) · [F3 Will it Run?](#f3) ·
-[new in 1.0.3](#v103) · [new in 1.0.2](#v102) · [feature demonstrations from 1.0.1](#v101).
+[new in 1.0.4](#v104) · [new in 1.0.3](#v103) · [new in 1.0.2](#v102) · [feature demonstrations from 1.0.1](#v101).
+
+**1.0.4** fixes GPU benchmark entries with zero coefficients, including HEM 2.8.0
+and catalogs from other mods. InstantDustCleaner is now built into the DLL and
+cleans the part being treated on the first use of the air can. Build search
+now includes a mix of low-cost, high-cost and varied options.
 
 **1.0.3** adds builds for CPU/GPU overclock jobs, importing clock targets,
 budget and customer requirements. It also fixes duplicate PCI locks,
@@ -31,7 +36,7 @@ Choose one of the two installation methods on the
 
 ### Full archive — the easiest option
 
-1. **Close the game** and download **PCBS-Helper-Full.zip**.
+1. **Close the game** and download **PCBS-Helper-1.0.4-Full.zip**.
    The archive includes BepInEx 5 x64 and the helper.
 2. In your Steam library, right-click PC Building Simulator →
    **Manage → Browse local files**.
@@ -67,6 +72,10 @@ The **Source code** archives are not needed to install the helper.
 | **F3** | Will it Run? Helper; opens/pins the panel, or hides it when already pinned. |
 | **Alt** | Toggle the cursor to interact with F2/F3. |
 | **Esc** | Close F1 or hide F2. |
+
+InstantDustCleaner is built into the helper DLL and is always active. On the
+first use of the air can, it cleans the part being treated. No separate plugin
+or F1 toggle is needed.
 
 Drag a window by its title bar to move it. Settings, window positions and
 Build Helper data are saved between game sessions.
@@ -358,6 +367,21 @@ components are skipped.
 
 ![Selecting flexible red cables and replacing eligible connected cables in bulk](docs/images/guide/13_replace_customizable_cables.gif)
 
+<a id="v104"></a>
+
+### New in 1.0.4 · November 15, 2026
+
+- **HEM 2.8.0 and other mod catalogs.** Zero GPU benchmark coefficients no
+  longer stop calculations with “Invalid GPU clocks.” GPU calculations also
+  account for the precision of the game's runtime arithmetic.
+- **InstantDustCleaner** is built into the main DLL and is always active.
+  The first use of the air can cleans the part being treated. No separate
+  plugin or F1 toggle is needed.
+- **New build results** are split between the 20% cheapest, 20% most expensive
+  and 60% random options, with priority given to different CPUs and GPU chips.
+  With 10 results, that is 2, 2 and 6 options. The table is sorted by price.
+- Build search uses less memory and caches only the current CPU/GPU pair.
+
 <a id="v103"></a>
 
 ### New in 1.0.3
@@ -484,7 +508,7 @@ The following additional documents are currently in Russian:
 
 - [Detailed guide: panels, Build Helper fields and job import](docs/USAGE.md).
 - [Troubleshooting and key bindings](docs/TROUBLESHOOTING.md).
-- [Changelog](CHANGELOG.md) · [Building from source](DEVELOPMENT.md).
+- [Changelog](CHANGELOG.md) · [Building from source](docs/BUILDING.md).
 
 The calculator is implemented by PCBS-Helper. Component data and 3DMark coefficients are read from the installed game. No third-party HTML calculator is embedded in the DLL.
 PCBS-Helper and its calculator by **Kalarono**.
